@@ -1,0 +1,972 @@
+import { useState, useEffect, useCallback } from "react";
+
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+const SB_URL = "https://riecgkyaahbyyvkwnadh.supabase.co";
+const SB_KEY = "sb_publishable_7EeCMMInejutYKwkChaIhQ_3Cayc9gd";
+
+async function sb(table, params = "", opts = {}) {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}${params}`, {
+    method: opts.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SB_KEY,
+      "Authorization": `Bearer ${SB_KEY}`,
+      "Prefer": opts.prefer || "return=representation",
+    },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || `Erreur ${res.status}`);
+  return text ? JSON.parse(text) : [];
+}
+
+// ─── TRADUCTIONS ───────────────────────────────────────────────────────────────
+const T = {
+  fr: {
+    appName: "BiblioMagie",
+    appSub: "École Primaire",
+    hello: "Bonjour Sara ! 👋",
+    continueReading: "Continue ta lecture !",
+    page: "Page",
+    booksRead: "Livres lus",
+    badges: "Badges",
+    thisMonth: "Ce mois",
+    rank: "Rang",
+    quickAccess: "🚀 Accès rapide",
+    catalogue: "Catalogue",
+    borrowBook: "Emprunter un livre",
+    myEbooks: "Mes Ebooks",
+    readOnline: "Lire en ligne",
+    autoRead: "Autolecture",
+    listenBook: "Écouter un livre",
+    myProfile: "Mon Profil",
+    myBadges: "Mes Badges",
+    myBadgesTitle: "🏆 Mes Badges",
+    classRanking: "🏅 Classement de la classe",
+    nav: { home: "Accueil", catalogue: "Catalogue", listen: "Écoute", profile: "Profil", admin: "Admin" },
+    available: "✅ Dispo",
+    borrowed: "❌ Emprunté",
+    borrow: "📥 Emprunter",
+    reserve: "🔔 Réserver",
+    readNow: "📖 Lire maintenant",
+    chapter: "Chapitre 4 — La lecture en cours",
+    readingSpeed: "🐢 Vitesse de lecture",
+    filters: { all: "🗂️ Tous", physical: "📗 Physiques", ebook: "📱 Ebooks" },
+    adminTitle: "⚙️ Administration",
+    adminSub: "Gestion de la bibliothèque",
+    totalBooks: "Livres au total",
+    students: "Élèves inscrits",
+    activeLoans: "Emprunts actifs",
+    late: "En retard",
+    currentLoans: "📋 Emprunts en cours",
+    since: "depuis",
+    return: "Retour",
+    quickActions: "⚡ Actions rapides",
+    addBook: "Ajouter un livre",
+    addStudent: "Ajouter un élève",
+    viewStats: "Voir les statistiques",
+    importEbooks: "Importer des ebooks",
+    comingSoon: "bientôt disponible !",
+    notifBorrow: "Livre emprunté avec succès !",
+    notifReserve: "Réservation enregistrée !",
+    notifRead: "Lecture démarrée !",
+    notifPause: "Lecture en pause",
+    inProgress: "En cours",
+    books: "livres",
+    by: "Par",
+    pages: "pages",
+  },
+  en: {
+    appName: "BiblioMagic",
+    appSub: "Primary School",
+    hello: "Hello Sara! 👋",
+    continueReading: "Continue reading!",
+    page: "Page",
+    booksRead: "Books read",
+    badges: "Badges",
+    thisMonth: "This month",
+    rank: "Rank",
+    quickAccess: "🚀 Quick Access",
+    catalogue: "Catalogue",
+    borrowBook: "Borrow a book",
+    myEbooks: "My Ebooks",
+    readOnline: "Read online",
+    autoRead: "AutoRead",
+    listenBook: "Listen to a book",
+    myProfile: "My Profile",
+    myBadges: "My Badges",
+    myBadgesTitle: "🏆 My Badges",
+    classRanking: "🏅 Class Ranking",
+    nav: { home: "Home", catalogue: "Catalogue", listen: "Listen", profile: "Profile", admin: "Admin" },
+    available: "✅ Available",
+    borrowed: "❌ Borrowed",
+    borrow: "📥 Borrow",
+    reserve: "🔔 Reserve",
+    readNow: "📖 Read now",
+    chapter: "Chapter 4 — Reading in progress",
+    readingSpeed: "🐢 Reading speed",
+    filters: { all: "🗂️ All", physical: "📗 Physical", ebook: "📱 Ebooks" },
+    adminTitle: "⚙️ Administration",
+    adminSub: "Library Management",
+    totalBooks: "Total books",
+    students: "Enrolled students",
+    activeLoans: "Active loans",
+    late: "Overdue",
+    currentLoans: "📋 Current loans",
+    since: "since",
+    return: "Return",
+    quickActions: "⚡ Quick Actions",
+    addBook: "Add a book",
+    addStudent: "Add a student",
+    viewStats: "View statistics",
+    importEbooks: "Import ebooks",
+    comingSoon: "coming soon!",
+    notifBorrow: "Book borrowed successfully!",
+    notifReserve: "Reservation recorded!",
+    notifRead: "Reading started!",
+    notifPause: "Reading paused",
+    inProgress: "Reading",
+    books: "books",
+    by: "By",
+    pages: "pages",
+  },
+  ar: {
+    appName: "مكتبة السحر",
+    appSub: "المدرسة الابتدائية",
+    hello: "مرحباً سارة! 👋",
+    continueReading: "واصلي القراءة!",
+    page: "صفحة",
+    booksRead: "كتب مقروءة",
+    badges: "الشارات",
+    thisMonth: "هذا الشهر",
+    rank: "الترتيب",
+    quickAccess: "🚀 وصول سريع",
+    catalogue: "الفهرس",
+    borrowBook: "استعارة كتاب",
+    myEbooks: "كتبي الإلكترونية",
+    readOnline: "القراءة أونلاين",
+    autoRead: "القراءة التلقائية",
+    listenBook: "الاستماع لكتاب",
+    myProfile: "ملفي الشخصي",
+    myBadges: "شاراتي",
+    myBadgesTitle: "🏆 شاراتي",
+    classRanking: "🏅 ترتيب الفصل",
+    nav: { home: "الرئيسية", catalogue: "الفهرس", listen: "استماع", profile: "ملفي", admin: "إدارة" },
+    available: "✅ متاح",
+    borrowed: "❌ مستعار",
+    borrow: "📥 استعارة",
+    reserve: "🔔 حجز",
+    readNow: "📖 اقرأ الآن",
+    chapter: "الفصل الرابع — القراءة جارية",
+    readingSpeed: "🐢 سرعة القراءة",
+    filters: { all: "🗂️ الكل", physical: "📗 ورقية", ebook: "📱 إلكترونية" },
+    adminTitle: "⚙️ الإدارة",
+    adminSub: "إدارة المكتبة",
+    totalBooks: "إجمالي الكتب",
+    students: "الطلاب المسجلون",
+    activeLoans: "الاستعارات النشطة",
+    late: "متأخر",
+    currentLoans: "📋 الاستعارات الحالية",
+    since: "منذ",
+    return: "إعادة",
+    quickActions: "⚡ إجراءات سريعة",
+    addBook: "إضافة كتاب",
+    addStudent: "إضافة طالب",
+    viewStats: "عرض الإحصائيات",
+    importEbooks: "استيراد كتب إلكترونية",
+    comingSoon: "قريباً!",
+    notifBorrow: "تمت الاستعارة بنجاح!",
+    notifReserve: "تم تسجيل الحجز!",
+    notifRead: "بدأت القراءة!",
+    notifPause: "القراءة متوقفة",
+    inProgress: "جارٍ",
+    books: "كتب",
+    by: "بقلم",
+    pages: "صفحة",
+  },
+};
+
+const badges = [
+  { id: 1, icon: "⭐", label: { fr: "Premier livre", en: "First book", ar: "أول كتاب" }, earned: true, color: "#FFD700" },
+  { id: 2, icon: "🔥", label: { fr: "5 livres lus", en: "5 books read", ar: "5 كتب مقروءة" }, earned: true, color: "#FF6B35" },
+  { id: 3, icon: "🦁", label: { fr: "Lecteur courageux", en: "Brave reader", ar: "قارئ شجاع" }, earned: true, color: "#A855F7" },
+  { id: 4, icon: "🚀", label: { fr: "10 livres lus", en: "10 books read", ar: "10 كتب" }, earned: false, color: "#3B82F6" },
+  { id: 5, icon: "🌟", label: { fr: "Super lecteur", en: "Super reader", ar: "قارئ متميز" }, earned: false, color: "#EC4899" },
+  { id: 6, icon: "👑", label: { fr: "Champion", en: "Champion", ar: "بطل" }, earned: false, color: "#F59E0B" },
+];
+
+const livres = [
+  { id: 1, titre: { fr: "Le Petit Prince", en: "The Little Prince", ar: "الأمير الصغير" }, auteur: "A. de Saint-Exupéry", cover: "👑", dispo: true, type: "physique", genre: { fr: "Conte", en: "Tale", ar: "حكاية" }, pages: 96, couleur: "#FDE68A" },
+  { id: 2, titre: { fr: "Matilda", en: "Matilda", ar: "ماتيلدا" }, auteur: "Roald Dahl", cover: "📚", dispo: false, type: "physique", genre: { fr: "Aventure", en: "Adventure", ar: "مغامرة" }, pages: 240, couleur: "#BBF7D0" },
+  { id: 3, titre: { fr: "Alice au Pays des Merveilles", en: "Alice in Wonderland", ar: "أليس في بلاد العجائب" }, auteur: "Lewis Carroll", cover: "🐇", dispo: true, type: "ebook", genre: { fr: "Fantaisie", en: "Fantasy", ar: "خيال" }, pages: 180, couleur: "#BFDBFE" },
+  { id: 4, titre: { fr: "Les Fables de La Fontaine", en: "Aesop's Fables", ar: "حكايات لافونتين" }, auteur: "La Fontaine", cover: "🦊", dispo: true, type: "ebook", genre: { fr: "Poésie", en: "Poetry", ar: "شعر" }, pages: 120, couleur: "#FCA5A5" },
+  { id: 5, titre: { fr: "Pinocchio", en: "Pinocchio", ar: "بينوكيو" }, auteur: "Carlo Collodi", cover: "🤥", dispo: true, type: "physique", genre: { fr: "Conte", en: "Tale", ar: "حكاية" }, pages: 200, couleur: "#DDD6FE" },
+  { id: 6, titre: { fr: "Heidi", en: "Heidi", ar: "هايدي" }, auteur: "Johanna Spyri", cover: "🏔️", dispo: true, type: "ebook", genre: { fr: "Aventure", en: "Adventure", ar: "مغامرة" }, pages: 320, couleur: "#FED7AA" },
+];
+
+const eleves = [
+  { id: 1, nom: "Sara", avatar: "🧒", classe: { fr: "CM1", en: "Grade 4", ar: "الرابعة" }, livresLus: 8, badges: 3, enCours: { fr: "Le Petit Prince", en: "The Little Prince", ar: "الأمير الصغير" } },
+  { id: 2, nom: "Karim", avatar: "👦", classe: { fr: "CE2", en: "Grade 3", ar: "الثالثة" }, livresLus: 5, badges: 2, enCours: { fr: "Pinocchio", en: "Pinocchio", ar: "بينوكيو" } },
+  { id: 3, nom: "Lina", avatar: "👧", classe: { fr: "CM2", en: "Grade 5", ar: "الخامسة" }, livresLus: 12, badges: 4, enCours: { fr: "Heidi", en: "Heidi", ar: "هايدي" } },
+];
+
+const emprunts = [
+  { livre: { fr: "Matilda", en: "Matilda", ar: "ماتيلدا" }, eleve: "Karim", date: "10 Avr", retour: "24 Avr" },
+  { livre: { fr: "Alice au Pays...", en: "Alice in W...", ar: "أليس..." }, eleve: "Sara", date: "15 Avr", retour: "29 Avr" },
+];
+
+const LANGS = [
+  { code: "fr", flag: "🇫🇷", label: "Français" },
+  { code: "en", flag: "🇬🇧", label: "English" },
+  { code: "ar", flag: "🇸🇦", label: "العربية" },
+];
+
+const BADGE_DEFS = [
+  { key:"b1",  icon:"⭐", label:{fr:"Premier livre", en:"First book",   ar:"أول كتاب"},    color:"#FFD700", min:1  },
+  { key:"b3",  icon:"🦁", label:{fr:"Courageux",     en:"Brave reader", ar:"قارئ شجاع"},   color:"#A855F7", min:3  },
+  { key:"b5",  icon:"🔥", label:{fr:"5 livres lus",  en:"5 books read", ar:"5 كتب"},       color:"#FF6B35", min:5  },
+  { key:"b10", icon:"🚀", label:{fr:"10 livres lus", en:"10 books",     ar:"10 كتب"},      color:"#3B82F6", min:10 },
+  { key:"b15", icon:"🌟", label:{fr:"Super lecteur", en:"Super reader", ar:"قارئ متميز"},  color:"#EC4899", min:15 },
+  { key:"b20", icon:"👑", label:{fr:"Champion",      en:"Champion",     ar:"بطل"},         color:"#F59E0B", min:20 },
+];
+
+export default function App() {
+  const [lang,          setLang]          = useState("fr");
+  const [page,          setPage]          = useState("accueil");
+  const [filtre,        setFiltre]        = useState("tous");
+  const [livreActif,    setLivreActif]    = useState(null);
+  const [lectureActive, setLectureActive] = useState(false);
+  const [notification,  setNotification]  = useState(null);
+  const [showLangPicker,setShowLangPicker]= useState(false);
+
+  // Auth
+  const [user,      setUser]      = useState(null);
+  const [loginCode, setLoginCode] = useState("");
+  const [loginErr,  setLoginErr]  = useState("");
+  const [logging,   setLogging]   = useState(false);
+
+  // Données Supabase
+  const [dbLivres,   setDbLivres]   = useState([]);
+  const [dbEleves,   setDbEleves]   = useState([]);
+  const [dbEmprunts, setDbEmprunts] = useState([]);
+  const [mesEmp,     setMesEmp]     = useState([]);
+  const [mesBadges,  setMesBadges]  = useState([]);
+  const [dbLoaded,   setDbLoaded]   = useState(false);
+
+  const t = T[lang];
+  const isRTL = lang === "ar";
+  const dir = isRTL ? "rtl" : "ltr";
+  const fontFamily = isRTL
+    ? "'Cairo', 'Tajawal', 'Segoe UI', sans-serif"
+    : "'Nunito', 'Baloo 2', cursive, sans-serif";
+
+  const showNotif = (msg, emoji = "✅") => {
+    setNotification({ msg, emoji });
+    setTimeout(() => setNotification(null), 2500);
+  };
+
+  // ── Chargement données ──
+  const loadAll = useCallback(async (uid, role) => {
+    try {
+      const [lv, el, emp, mes, bdg] = await Promise.all([
+        sb("livres", "?order=titre_fr.asc"),
+        role === "admin" ? sb("eleves", "?order=nom.asc") : Promise.resolve([]),
+        role === "admin" ? sb("emprunts", "?rendu=eq.false&select=*,eleves(nom,avatar),livres(titre_fr,titre_en,titre_ar,cover_emoji,couleur)") : Promise.resolve([]),
+        sb("emprunts", `?eleve_id=eq.${uid}&rendu=eq.false&select=*,livres(id,titre_fr,titre_en,titre_ar,cover_emoji,couleur)`),
+        sb("badges", `?eleve_id=eq.${uid}`),
+      ]);
+      setDbLivres(lv);
+      setDbEleves(el);
+      setDbEmprunts(emp);
+      setMesEmp(mes);
+      setMesBadges(bdg.map(b => b.badge_key));
+      setDbLoaded(true);
+    } catch(e) { showNotif("Erreur chargement: " + e.message, "❌"); }
+  }, []);
+
+  // ── Connexion ──
+  const handleLogin = async () => {
+    const c = loginCode.trim().toUpperCase();
+    if (!c) return;
+    setLogging(true); setLoginErr("");
+    try {
+      const res = await sb("eleves", `?code_acces=eq.${c}&limit=1`);
+      if (!res.length) { setLoginErr(t.wrongCode || "Code incorrect !"); }
+      else { setUser(res[0]); await loadAll(res[0].id, res[0].role); }
+    } catch(e) { setLoginErr("Erreur: " + e.message); }
+    setLogging(false);
+  };
+
+  // ── Emprunter ──
+  const handleBorrow = async (livre) => {
+    try {
+      await sb("emprunts", "", { method:"POST", body:{ eleve_id:user.id, livre_id:livre.id } });
+      await sb("livres", `?id=eq.${livre.id}`, { method:"PATCH", prefer:"return=minimal", body:{ disponible:false } });
+      showNotif(t.notifBorrow || "Emprunté ! 🎉", "🎉");
+      setLivreActif(null);
+      await loadAll(user.id, user.role);
+      // Badge check
+      const newCount = mesEmp.length + 1;
+      for (const bd of BADGE_DEFS) {
+        if (newCount >= bd.min && !mesBadges.includes(bd.key)) {
+          try {
+            await sb("badges", "", { method:"POST", body:{ eleve_id:user.id, badge_key:bd.key } });
+            showNotif(`🏆 Badge : ${bd.label[lang]} !`, "🌟");
+          } catch {}
+        }
+      }
+    } catch(e) { showNotif("Erreur: " + e.message, "❌"); }
+  };
+
+  // ── Rendre ──
+  const handleReturn = async (empId, livreId) => {
+    try {
+      await sb("emprunts", `?id=eq.${empId}`, { method:"PATCH", prefer:"return=minimal", body:{ rendu:true } });
+      await sb("livres", `?id=eq.${livreId}`, { method:"PATCH", prefer:"return=minimal", body:{ disponible:true } });
+      showNotif("Livre rendu ! ✅", "📗");
+      await loadAll(user.id, user.role);
+    } catch(e) { showNotif("Erreur", "❌"); }
+  };
+
+  // Livres réels si connecté, sinon livres de démo
+  const livresActuels = dbLoaded ? dbLivres : livres;
+  const elevesActuels = dbLoaded ? dbEleves : eleves;
+  const empruntsActuels = dbLoaded ? dbEmprunts : emprunts;
+
+  const livresFiltres = livresActuels.filter(l =>
+    filtre === "tous" ? true : filtre === "physique" ? l.type === "physique" : l.type === "ebook"
+  );
+
+  const badgeDefs = BADGE_DEFS.map(b => ({ ...b, earned: mesBadges.includes(b.key) }));
+  const getTitre = (l) => l[`titre_${lang}`] || l.titre_fr || l.titre || "";
+
+  // ── ÉCRAN LOGIN ──
+  if (!user) return (
+    <div dir={dir} style={{ minHeight:"100vh", background:"linear-gradient(135deg,#7C3AED,#4F46E5,#2563EB)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:20, fontFamily }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Baloo+2:wght@700;800;900&family=Cairo:wght@600;700;800;900&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+        @keyframes slideIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+        .float{animation:float 3s ease-in-out infinite}
+        button{cursor:pointer;border:none;transition:all .2s;font-family:inherit}
+        button:hover{opacity:.87;transform:scale(1.03)}
+      `}</style>
+
+      {notification && (
+        <div style={{ position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#1E1B4B",color:"white",borderRadius:14,padding:"11px 20px",zIndex:9999,fontWeight:700,fontSize:14,display:"flex",gap:8,alignItems:"center",boxShadow:"0 8px 24px rgba(0,0,0,0.25)",animation:"slideIn .3s ease",whiteSpace:"nowrap" }}>
+          {notification.emoji} {notification.msg}
+        </div>
+      )}
+
+      <div style={{ textAlign:"center", marginBottom:28 }}>
+        <div className="float" style={{ fontSize:68, marginBottom:8 }}>📖</div>
+        <div style={{ fontFamily:isRTL?"'Cairo'":"'Baloo 2',cursive", fontWeight:900, fontSize:34, color:"white" }}>{t.appName}</div>
+        <div style={{ color:"rgba(255,255,255,0.6)", fontSize:13, fontWeight:600 }}>{t.appSub}</div>
+      </div>
+
+      {/* Langue */}
+      <div style={{ display:"flex", gap:8, marginBottom:24 }}>
+        {LANGS.map(l => (
+          <button key={l.code} onClick={() => setLang(l.code)} style={{ background:lang===l.code?"rgba(255,255,255,0.25)":"rgba(255,255,255,0.1)", border:lang===l.code?"2px solid rgba(255,255,255,0.6)":"2px solid transparent", borderRadius:40, padding:"6px 14px", color:"white", fontWeight:700, fontSize:14, display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:20 }}>{l.flag}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Card login */}
+      <div style={{ background:"white", borderRadius:28, padding:28, width:"100%", maxWidth:370, boxShadow:"0 24px 60px rgba(0,0,0,0.25)" }}>
+        <div style={{ fontWeight:800, fontSize:16, color:"#374151", marginBottom:16, textAlign:isRTL?"right":"left" }}>
+          {t.enterCode || "Entre ton code"}
+        </div>
+        <input
+          value={loginCode}
+          onChange={e => { setLoginCode(e.target.value); setLoginErr(""); }}
+          onKeyDown={e => e.key==="Enter" && handleLogin()}
+          placeholder={t.codePlaceholder || "Ex: SARA001"}
+          style={{ width:"100%", padding:"15px", borderRadius:16, border:"3px solid #FBBF24", fontSize:20, fontWeight:800, letterSpacing:4, textAlign:"center", background:"#FFFBEB", color:"#1E1B4B", outline:"none", marginBottom:loginErr?8:16, boxShadow:"0 0 0 4px rgba(251,191,36,0.15)", fontFamily }}
+        />
+        {loginErr && <div style={{ color:"#EF4444", fontSize:13, fontWeight:700, marginBottom:12, textAlign:"center" }}>{loginErr}</div>}
+        <button onClick={handleLogin} disabled={logging||!loginCode.trim()} style={{ width:"100%", padding:"14px", borderRadius:16, background:"linear-gradient(135deg,#7C3AED,#4F46E5)", color:"white", fontWeight:800, fontSize:16, opacity:logging||!loginCode.trim()?0.6:1, boxShadow:"0 8px 24px rgba(124,58,237,0.4)", fontFamily }}>
+          {logging ? "..." : (t.loginBtn || "Se connecter")}
+        </button>
+        <div style={{ marginTop:18, padding:"12px 14px", background:"#F9FAFB", borderRadius:14 }}>
+          <div style={{ fontSize:11, color:"#9CA3AF", fontWeight:700, marginBottom:8, textAlign:"center" }}>CODES DÉMO</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center" }}>
+            {[["ADMIN123","⚙️"],["SARA001","🧒"],["KARIM002","👦"],["LINA003","👧"]].map(([c,ic]) => (
+              <button key={c} onClick={() => { setLoginCode(c); setLoginErr(""); }} style={{ background:"#EDE9FE", color:"#7C3AED", borderRadius:10, padding:"5px 10px", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
+                {ic} {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+return (
+    <div dir={dir} style={{
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #FFF7ED 0%, #EFF6FF 50%, #F5F3FF 100%)",
+      fontFamily,
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&family=Cairo:wght@400;600;700;800;900&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        .card-hover { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.15) !important; }
+        .btn { cursor: pointer; border: none; transition: all 0.2s; }
+        .btn:hover { opacity: 0.88; transform: scale(1.04); }
+        .nav-btn { cursor: pointer; transition: all 0.2s; border: none; background: none; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        @keyframes pop { 0%{transform:scale(0.5);opacity:0} 80%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+        @keyframes slide-in { from{transform:translateY(-20px);opacity:0} to{transform:translateY(0);opacity:1} }
+        .float { animation: float 3s ease-in-out infinite; }
+        .pop { animation: pop 0.4s ease forwards; }
+        .slide-in { animation: slide-in 0.3s ease forwards; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #C4B5FD; border-radius: 3px; }
+      `}</style>
+
+      {/* Décor fond */}
+      <div style={{ position: "fixed", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "rgba(167,139,250,0.1)", zIndex: 0 }} />
+      <div style={{ position: "fixed", bottom: 80, left: -40, width: 150, height: 150, borderRadius: "50%", background: "rgba(110,231,183,0.13)", zIndex: 0 }} />
+
+      {/* Notification */}
+      {notification && (
+        <div className="slide-in" style={{
+          position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
+          background: "#1E1B4B", color: "white", borderRadius: 16, padding: "12px 24px",
+          zIndex: 9999, fontWeight: 700, fontSize: 15, display: "flex", gap: 8, alignItems: "center",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.25)", whiteSpace: "nowrap"
+        }}>
+          <span style={{ fontSize: 20 }}>{notification.emoji}</span> {notification.msg}
+        </div>
+      )}
+{/* Sélecteur de langue (overlay) */}
+      {showLangPicker && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setShowLangPicker(false)}>
+          <div className="pop" onClick={e => e.stopPropagation()} style={{
+            background: "white", borderRadius: 28, padding: 28, width: 280,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.25)"
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 18, color: "#1E1B4B", marginBottom: 18, textAlign: "center" }}>
+              🌍 Choisir la langue
+            </div>
+            {LANGS.map(l => (
+              <button key={l.code} className="btn" onClick={() => { setLang(l.code); setShowLangPicker(false); }} style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 14,
+                padding: "14px 18px", borderRadius: 16, marginBottom: 10,
+                background: lang === l.code ? "linear-gradient(135deg,#EDE9FE,#DDD6FE)" : "#F9FAFB",
+                border: lang === l.code ? "2px solid #A78BFA" : "2px solid transparent",
+                cursor: "pointer"
+              }}>
+                <span style={{ fontSize: 28 }}>{l.flag}</span>
+                <span style={{ fontWeight: 800, fontSize: 16, color: lang === l.code ? "#7C3AED" : "#374151", fontFamily: l.code === "ar" ? "'Cairo', sans-serif" : "inherit" }}>{l.label}</span>
+                {lang === l.code && <span style={{ marginLeft: "auto", color: "#7C3AED", fontSize: 18 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div style={{
+        background: "linear-gradient(135deg, #7C3AED, #4F46E5)",
+        padding: "14px 18px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        boxShadow: "0 4px 20px rgba(124,58,237,0.35)",
+        position: "sticky", top: 0, zIndex: 100,
+        flexDirection: isRTL ? "row-reverse" : "row"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexDirection: isRTL ? "row-reverse" : "row" }}>
+          <span style={{ fontSize: 28 }} className="float">📖</span>
+          <div style={{ textAlign: isRTL ? "right" : "left" }}>
+            <div style={{ fontFamily: isRTL ? "'Cairo', sans-serif" : "'Baloo 2', cursive", fontWeight: 900, fontSize: 19, color: "white", lineHeight: 1 }}>
+              {t.appName}
+            </div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{t.appSub}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: isRTL ? "row-reverse" : "row" }}>
+          {/* Bouton langue */}
+          <button className="btn" onClick={() => setShowLangPicker(true)} style={{
+            background: "rgba(255,255,255,0.18)", border: "2px solid rgba(255,255,255,0.3)",
+            borderRadius: 20, padding: "6px 12px", display: "flex", alignItems: "center", gap: 5
+          }}>
+            <span style={{ fontSize: 18 }}>{LANGS.find(l => l.code === lang)?.flag}</span>
+            <span style={{ color: "white", fontWeight: 700, fontSize: 12 }}>{lang.toUpperCase()}</span>
+          </button>
+          <div style={{
+            background: "#FFD700", borderRadius: 20, padding: "5px 10px",
+            fontWeight: 800, fontSize: 12, color: "#7C3AED"
+          }}>⭐ {badgeDefs.filter(b=>b.earned).length}</div>
+          <button className="btn" onClick={() => { setUser(null); setPage("accueil"); setLoginCode(""); setDbLoaded(false); }} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:20, padding:"5px 10px", color:"rgba(255,255,255,0.85)", fontWeight:700, fontSize:11, fontFamily }}>
+            🚪
+          </button>
+        </div>
+      </div>
+     {/* CONTENU */}
+      <div style={{ padding: "0 0 80px 0", maxWidth: 480, margin: "0 auto", position: "relative", zIndex: 1 }}>
+
+        {/* ═══ ACCUEIL ═══ */}
+        {page === "accueil" && (
+          <div className="slide-in" style={{ padding: "18px 15px" }}>
+            {/* Bannière */}
+            <div style={{
+              background: "linear-gradient(135deg, #6EE7B7, #3B82F6)",
+              borderRadius: 24, padding: 22, marginBottom: 18,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              boxShadow: "0 8px 24px rgba(59,130,246,0.3)",
+              flexDirection: isRTL ? "row-reverse" : "row"
+            }}>
+              <div style={{ textAlign: isRTL ? "right" : "left" }}>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 700 }}>{t.hello.replace("Sara", user?.nom || "Sara")}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "white", lineHeight: 1.25, fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive" }}>
+                  {t.continueReading}
+                </div>
+                {mesEmp[0] && (
+                  <div style={{ marginTop: 8, background: "rgba(255,255,255,0.22)", borderRadius: 8, padding: "4px 10px", display: "inline-block" }}>
+                    <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>
+                      📘 {getTitre(mesEmp[0].livres)}
+                    </span>
+                  </div>
+                )}
+                <div style={{ marginTop: 8, background: "rgba(0,0,0,0.15)", borderRadius: 6, overflow: "hidden", width: 130, height: 6 }}>
+                  <div style={{ width: "44%", height: "100%", background: "white", borderRadius: 6, float: isRTL ? "right" : "left" }} />
+                </div>
+              </div>
+              <span style={{ fontSize: 60 }} className="float">🌟</span>
+            </div>
+
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
+              {[
+                { icon: "📚", val: mesEmp.length, label: t.booksRead, bg: "#FDE68A", c: "#92400E" },
+                { icon: "🏅", val: badgeDefs.filter(b=>b.earned).length, label: t.badges, bg: "#DDD6FE", c: "#5B21B6" },
+                { icon: "⏱️", val: user?.role==="admin"?"👑":"🌱", label: t.thisMonth, bg: "#BBF7D0", c: "#065F46" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: s.bg, borderRadius: 16, padding: "12px 8px", textAlign: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.07)" }}>
+                  <div style={{ fontSize: 22 }}>{s.icon}</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: s.c, fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive" }}>{s.val}</div>
+                  <div style={{ fontSize: 10, color: s.c, fontWeight: 700 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Badges */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: "#1E1B4B", marginBottom: 10, display: "flex", justifyContent: "space-between", flexDirection: isRTL ? "row-reverse" : "row" }}>
+                <span>{t.myBadgesTitle}</span>
+                <span style={{ fontSize: 13, color: "#7C3AED", fontWeight: 700, cursor: "pointer" }} onClick={() => setPage("profil")}>
+                  {isRTL ? "← الكل" : "Voir tout →"}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexDirection: isRTL ? "row-reverse" : "row" }}>
+                {badgeDefs.slice(0, 4).map(b => (
+                  <div key={b.key} className="card-hover" style={{
+                    background: b.earned ? b.color + "33" : "#F3F4F6",
+                    border: `2px solid ${b.earned ? b.color : "#E5E7EB"}`,
+                    borderRadius: 14, padding: "8px 6px", textAlign: "center", flex: 1,
+                    opacity: b.earned ? 1 : 0.5
+                  }}>
+                    <div style={{ fontSize: 22 }}>{b.earned ? b.icon : "🔒"}</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: b.earned ? "#1E1B4B" : "#9CA3AF", marginTop: 2, lineHeight: 1.2 }}>{b.label[lang]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Accès rapide */}
+            <div style={{ fontWeight: 800, fontSize: 16, color: "#1E1B4B", marginBottom: 12 }}>{t.quickAccess}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {[
+                { icon: "📖", label: t.catalogue, sublabel: t.borrowBook, bg: "linear-gradient(135deg,#A78BFA,#7C3AED)", page: "catalogue" },
+                { icon: "📱", label: t.myEbooks, sublabel: t.readOnline, bg: "linear-gradient(135deg,#34D399,#059669)", page: "ebooks" },
+                { icon: "🎧", label: t.autoRead, sublabel: t.listenBook, bg: "linear-gradient(135deg,#F59E0B,#D97706)", page: "lecture" },
+                { icon: "👤", label: t.myProfile, sublabel: t.myBadges, bg: "linear-gradient(135deg,#F472B6,#DB2777)", page: "profil" },
+              ].map((item, i) => (
+                <div key={i} className="card-hover" onClick={() => setPage(item.page)} style={{
+                  background: item.bg, borderRadius: 20, padding: 16,
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.14)", textAlign: isRTL ? "right" : "left"
+                }}>
+                  <div style={{ fontSize: 30, marginBottom: 6 }}>{item.icon}</div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "white" }}>{item.label}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>{item.sublabel}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ CATALOGUE ═══ */}
+        {page === "catalogue" && (
+          <div className="slide-in" style={{ padding: "18px 15px" }}>
+            <div style={{ fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive", fontWeight: 800, fontSize: 22, color: "#1E1B4B", marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
+              📚 {t.catalogue}
+            </div>
+            <div style={{ color: "#6B7280", fontSize: 12, fontWeight: 600, marginBottom: 14, textAlign: isRTL ? "right" : "left" }}>
+              {livresActuels.filter(l => l.disponible ?? l.dispo).length} {t.available.replace("✅ ", "")}
+            </div>
+
+            {/* Filtres */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 18, flexDirection: isRTL ? "row-reverse" : "row" }}>
+              {[
+                { key: "tous", label: t.filters.all },
+                { key: "physique", label: t.filters.physical },
+                { key: "ebook", label: t.filters.ebook },
+              ].map(f => (
+                <button key={f.key} className="btn" onClick={() => setFiltre(f.key)} style={{
+                  padding: "7px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12,
+                  background: filtre === f.key ? "#7C3AED" : "#F3F4F6",
+                  color: filtre === f.key ? "white" : "#374151",
+                  boxShadow: filtre === f.key ? "0 4px 12px rgba(124,58,237,0.3)" : "none",
+                  fontFamily
+                }}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+              {livresFiltres.map(livre => (
+                <div key={livre.id} className="card-hover" onClick={() => setLivreActif(livre)} style={{
+                  background: "white", borderRadius: 20, padding: 14,
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.07)",
+                  display: "flex", gap: 12, alignItems: "center",
+                  border: `2px solid ${livre.couleur || "#FDE68A"}`,
+                  flexDirection: isRTL ? "row-reverse" : "row"
+                }}>
+                  <div style={{
+                    width: 58, height: 72, borderRadius: 12, background: livre.couleur || "#FDE68A",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32,
+                    flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                  }}>{livre.cover_emoji || livre.cover || "📚"}</div>
+                  <div style={{ flex: 1, textAlign: isRTL ? "right" : "left" }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#1E1B4B" }}>{getTitre(livre)}</div>
+                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, marginBottom: 5 }}>{livre.auteur}</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: isRTL ? "flex-end" : "flex-start" }}>
+                      <span style={{ background: "#EDE9FE", color: "#7C3AED", fontSize: 10, fontWeight: 700, borderRadius: 8, padding: "2px 7px" }}>
+                        {livre.genre_fr || (livre.genre && livre.genre[lang]) || ""}
+                      </span>
+                      <span style={{ background: livre.type === "ebook" ? "#DCFCE7" : "#DBEAFE", color: livre.type === "ebook" ? "#16A34A" : "#2563EB", fontSize: 10, fontWeight: 700, borderRadius: 8, padding: "2px 7px" }}>
+                        {livre.type === "ebook" ? t.filters.ebook : t.filters.physical}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "center", flexShrink: 0 }}>
+                    <div style={{ background: (livre.disponible ?? livre.dispo) ? "#DCFCE7" : "#FEE2E2", color: (livre.disponible ?? livre.dispo) ? "#16A34A" : "#DC2626", borderRadius: 20, padding: "3px 8px", fontSize: 10, fontWeight: 800 }}>
+                      {(livre.disponible ?? livre.dispo) ? t.available : t.borrowed}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#9CA3AF", marginTop: 3 }}>{livre.pages} {t.pages}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal */}
+            {livreActif && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "flex-end" }}
+                onClick={() => setLivreActif(null)}>
+                <div className="pop" onClick={e => e.stopPropagation()} dir={dir} style={{
+                  background: "white", borderRadius: "28px 28px 0 0",
+                  padding: 26, width: "100%", maxWidth: 480, margin: "0 auto", fontFamily
+                }}>
+                  <div style={{ display: "flex", gap: 14, marginBottom: 20, flexDirection: isRTL ? "row-reverse" : "row" }}>
+                    <div style={{ width: 72, height: 90, borderRadius: 14, background: livreActif.couleur || "#FDE68A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, flexShrink: 0 }}>
+                      {livreActif.cover_emoji || livreActif.cover || "📚"}
+                    </div>
+                    <div style={{ textAlign: isRTL ? "right" : "left" }}>
+                      <div style={{ fontWeight: 800, fontSize: 18, color: "#1E1B4B" }}>{getTitre(livreActif)}</div>
+                      <div style={{ color: "#6B7280", fontWeight: 600, fontSize: 13 }}>{livreActif.auteur}</div>
+                      <div style={{ marginTop: 5, fontSize: 12, color: "#7C3AED", fontWeight: 700 }}>📄 {livreActif.pages} {t.pages}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexDirection: isRTL ? "row-reverse" : "row" }}>
+                    {(livreActif.disponible ?? livreActif.dispo) && livreActif.type === "ebook" && (
+                      <button className="btn" onClick={() => { showNotif(t.notifRead, "📖"); setLivreActif(null); setPage("lecture"); }} style={{ flex: 1, background: "linear-gradient(135deg,#34D399,#059669)", color: "white", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 13, fontFamily }}>
+                        {t.readNow}
+                      </button>
+                    )}
+                    {(livreActif.disponible ?? livreActif.dispo) ? (
+                      <button className="btn" onClick={() => handleBorrow(livreActif)} style={{ flex: 1, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 13, fontFamily }}>
+                        {t.borrow}
+                      </button>
+                    ) : (
+                      <button className="btn" onClick={() => { showNotif(t.notifReserve, "🔔"); setLivreActif(null); }} style={{ flex: 1, background: "linear-gradient(135deg,#F59E0B,#D97706)", color: "white", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 13, fontFamily }}>
+                        {t.reserve}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ LECTURE ═══ */}
+        {page === "lecture" && (
+          <div className="slide-in" style={{ padding: "18px 15px" }}>
+            <div style={{ fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive", fontWeight: 800, fontSize: 22, color: "#1E1B4B", marginBottom: 16, textAlign: isRTL ? "right" : "left" }}>
+              🎧 {t.autoRead}
+            </div>
+
+            <div style={{
+              background: "linear-gradient(135deg, #1E1B4B, #4C1D95)",
+              borderRadius: 28, padding: 26, marginBottom: 18,
+              boxShadow: "0 12px 32px rgba(76,29,149,0.4)", textAlign: "center"
+            }}>
+              <div style={{ fontSize: 64, marginBottom: 10 }} className="float">👑</div>
+              <div style={{ fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive", fontSize: 20, fontWeight: 800, color: "white" }}>
+                {livres[0].titre[lang]}
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, fontWeight: 600, marginBottom: 18 }}>
+                {livres[0].auteur}
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, height: 7, marginBottom: 6, overflow: "hidden" }}>
+                <div style={{ width: "44%", height: "100%", background: "linear-gradient(90deg,#6EE7B7,#3B82F6)", borderRadius: 8, float: isRTL ? "right" : "left" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 600, marginBottom: 22, flexDirection: isRTL ? "row-reverse" : "row" }}>
+                <span>{t.page} 42</span><span>44%</span><span>{t.page} 96</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 18 }}>
+                <button className="btn" style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 42, height: 42, fontSize: 17, color: "white" }}>⏮</button>
+                <button className="btn" onClick={() => { setLectureActive(!lectureActive); showNotif(lectureActive ? t.notifPause : t.notifRead, lectureActive ? "⏸️" : "▶️"); }} style={{
+                  background: lectureActive ? "#6EE7B7" : "white",
+                  border: "none", borderRadius: "50%", width: 60, height: 60, fontSize: 26,
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.3)"
+                }}>
+                  {lectureActive ? "⏸" : "▶️"}
+                </button>
+                <button className="btn" style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 42, height: 42, fontSize: 17, color: "white" }}>⏭</button>
+              </div>
+            </div>
+
+            {/* Texte */}
+            <div style={{ background: "white", borderRadius: 20, padding: 18, marginBottom: 14, boxShadow: "0 4px 14px rgba(0,0,0,0.07)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#7C3AED", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>{t.chapter}</div>
+              {(lang === "ar"
+                ? ["حين كنت في السادسة من عمري رأيت مرة صورة رائعة،",
+                  "في كتاب عن الغابات البكر يسمى «قصص حقيقية».",
+                  "كانت تمثّل ثعباناً بواً يبتلع حيواناً مفترساً.",
+                  "هكذا كانت الصورة في ذلك الكتاب."]
+                : lang === "en"
+                  ? ["When I was six years old I saw, once, a magnificent picture...",
+                    "in a book about the Virgin Forest called 'True Stories'.",
+                    "It was a picture of a boa constrictor in the act of swallowing an animal.",
+                    "Here is a copy of the drawing."]
+                  : ["Lorsque j'avais six ans j'ai vu, une fois, une magnifique image...",
+                    "dans un livre sur la Forêt Vierge qui s'appelait «Histoires Vécues».",
+                    "Ça représentait un serpent boa qui avalait un fauve.",
+                    "Voilà la copie du dessin."]
+              ).map((ligne, i) => (
+                <div key={i} style={{
+                  fontSize: 14, lineHeight: 2, color: i === 0 ? "#1E1B4B" : "#374151",
+                  fontWeight: i === 0 ? 800 : 600,
+                  background: lectureActive && i === 0 ? "#FDE68A" : "transparent",
+                  borderRadius: 6, padding: "2px 6px", transition: "background 0.3s",
+                  textAlign: isRTL ? "right" : "left"
+                }}>{ligne}</div>
+              ))}
+            </div>
+
+            {/* Vitesse */}
+            <div style={{ background: "white", borderRadius: 18, padding: 14, boxShadow: "0 4px 14px rgba(0,0,0,0.07)" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>{t.readingSpeed}</div>
+              <div style={{ display: "flex", gap: 7, flexDirection: isRTL ? "row-reverse" : "row" }}>
+                {["0.75x", "1x", "1.25x", "1.5x"].map((v, i) => (
+                  <button key={i} className="btn" style={{
+                    flex: 1, padding: "8px 4px", borderRadius: 12, fontWeight: 700, fontSize: 12,
+                    background: i === 1 ? "#7C3AED" : "#F3F4F6",
+                    color: i === 1 ? "white" : "#374151", border: "none"
+                  }}>{v}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ PROFIL ═══ */}
+        {page === "profil" && (
+          <div className="slide-in" style={{ padding: "18px 15px" }}>
+            <div style={{
+              background: "linear-gradient(135deg, #EC4899, #8B5CF6)",
+              borderRadius: 26, padding: 22, textAlign: "center", marginBottom: 18,
+              boxShadow: "0 8px 24px rgba(236,72,153,0.3)"
+            }}>
+              <div style={{ fontSize: 58, marginBottom: 6 }}>🧒</div>
+              <div style={{ fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive", fontSize: 22, fontWeight: 800, color: "white" }}>Sara</div>
+              <div style={{ color: "rgba(255,255,255,0.8)", fontWeight: 600, marginBottom: 14, fontSize: 13 }}>
+                {eleves[0].classe[lang]}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexDirection: isRTL ? "row-reverse" : "row" }}>
+                {[
+                  { val: "8", label: t.booksRead },
+                  { val: "3", label: t.badges },
+                  { val: "🥈", label: t.rank },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.18)", borderRadius: 14, padding: "8px 14px" }}>
+                    <div style={{ fontWeight: 900, fontSize: 20, color: "white" }}>{s.val}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: 700 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+     {/* Badges */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: "#1E1B4B", marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>{t.myBadgesTitle}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {badges.map(b => (
+                  <div key={b.id} className="card-hover" style={{
+                    background: b.earned ? b.color + "22" : "#F9FAFB",
+                    border: `2px solid ${b.earned ? b.color : "#E5E7EB"}`,
+                    borderRadius: 18, padding: "14px 8px", textAlign: "center",
+                    opacity: b.earned ? 1 : 0.55, position: "relative"
+                  }}>
+                    {b.earned && <div className="pop" style={{ position: "absolute", top: -6, right: isRTL ? "auto" : -6, left: isRTL ? -6 : "auto", background: "#10B981", color: "white", borderRadius: "50%", width: 17, height: 17, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800 }}>✓</div>}
+                    <div style={{ fontSize: 30 }}>{b.earned ? b.icon : "🔒"}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: b.earned ? "#1E1B4B" : "#9CA3AF", marginTop: 5, lineHeight: 1.3 }}>{b.label[lang]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Classement */}
+            <div style={{ fontWeight: 800, fontSize: 16, color: "#1E1B4B", marginBottom: 12, textAlign: isRTL ? "right" : "left" }}>{t.classRanking}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {[...eleves].sort((a, b) => b.livresLus - a.livresLus).map((e, i) => (
+                <div key={e.id} style={{
+                  background: e.nom === "Sara" ? "linear-gradient(135deg,#EDE9FE,#DDD6FE)" : "white",
+                  borderRadius: 14, padding: "11px 14px",
+                  border: e.nom === "Sara" ? "2px solid #A78BFA" : "2px solid #F3F4F6",
+                  display: "flex", alignItems: "center", gap: 10,
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
+                  flexDirection: isRTL ? "row-reverse" : "row"
+                }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : "#CD7F32", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: "white", flexShrink: 0 }}>
+                    {i + 1}
+                  </div>
+                  <span style={{ fontSize: 26 }}>{e.avatar}</span>
+                  <div style={{ flex: 1, textAlign: isRTL ? "right" : "left" }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: "#1E1B4B" }}>{e.nom} {e.nom === "Sara" && (isRTL ? "👈" : "👈")}</div>
+                    <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600 }}>{e.classe[lang]} • {t.inProgress}: {e.enCours[lang]}</div>
+                  </div>
+                  <div style={{ textAlign: isRTL ? "left" : "right" }}>
+                    <div style={{ fontWeight: 900, fontSize: 17, color: "#7C3AED" }}>{e.livresLus}</div>
+                    <div style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600 }}>{t.books}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ ADMIN ═══ */}
+        {page === "admin" && (
+          <div className="slide-in" style={{ padding: "18px 15px" }}>
+            <div style={{ fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive", fontWeight: 800, fontSize: 22, color: "#1E1B4B", marginBottom: 3, textAlign: isRTL ? "right" : "left" }}>
+              {t.adminTitle}
+            </div>
+            <div style={{ color: "#6B7280", fontSize: 12, fontWeight: 600, marginBottom: 18, textAlign: isRTL ? "right" : "left" }}>{t.adminSub}</div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+              {[
+                { icon: "📚", val: livres.length, label: t.totalBooks, bg: "#EDE9FE", c: "#7C3AED" },
+                { icon: "👧", val: eleves.length, label: t.students, bg: "#DCFCE7", c: "#059669" },
+                { icon: "📤", val: emprunts.length, label: t.activeLoans, bg: "#FEF3C7", c: "#D97706" },
+                { icon: "⏰", val: "1", label: t.late, bg: "#FEE2E2", c: "#DC2626" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: s.bg, borderRadius: 16, padding: 14, boxShadow: "0 4px 12px rgba(0,0,0,0.07)", textAlign: isRTL ? "right" : "left" }}>
+                  <div style={{ fontSize: 26, marginBottom: 3 }}>{s.icon}</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: s.c, fontFamily: isRTL ? "'Cairo'" : "'Baloo 2', cursive" }}>{s.val}</div>
+                  <div style={{ fontSize: 11, color: s.c, fontWeight: 700 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontWeight: 800, fontSize: 16, color: "#1E1B4B", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>{t.currentLoans}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 18 }}>
+              {emprunts.map((em, i) => (
+                <div key={i} style={{
+                  background: "white", borderRadius: 14, padding: "12px 14px",
+                  display: "flex", alignItems: "center", gap: 10,
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.06)",
+                  flexDirection: isRTL ? "row-reverse" : "row"
+                }}>
+                  <span style={{ fontSize: 26 }}>📗</span>
+                  <div style={{ flex: 1, textAlign: isRTL ? "right" : "left" }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: "#1E1B4B" }}>{em.livre[lang]}</div>
+                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{t.by} {em.eleve} • {t.since} {em.date}</div>
+                  </div>
+                  <div style={{ background: "#FEF3C7", color: "#D97706", borderRadius: 10, padding: "3px 9px", fontSize: 10, fontWeight: 800 }}>
+                    {t.return} {em.retour}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontWeight: 800, fontSize: 16, color: "#1E1B4B", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>{t.quickActions}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {[
+                { icon: "➕", label: t.addBook, color: "#7C3AED" },
+                { icon: "👤", label: t.addStudent, color: "#059669" },
+                { icon: "📊", label: t.viewStats, color: "#D97706" },
+                { icon: "📥", label: t.importEbooks, color: "#2563EB" },
+              ].map((a, i) => (
+                <button key={i} className="btn" onClick={() => showNotif(`${a.label} — ${t.comingSoon}`, "🔧")} style={{
+                  background: "white", border: `2px solid ${a.color}22`,
+                  borderRadius: 13, padding: "13px 14px", display: "flex",
+                  alignItems: "center", gap: 10, fontWeight: 700, fontSize: 13, color: a.color,
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
+                  textAlign: isRTL ? "right" : "left",
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  fontFamily
+                }}>
+                  <span style={{ fontSize: 20 }}>{a.icon}</span>
+                  {a.label}
+                  <span style={{ marginLeft: isRTL ? 0 : "auto", marginRight: isRTL ? "auto" : 0, fontSize: 15 }}>
+                    {isRTL ? "←" : "→"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* BARRE NAV */}
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0,
+        background: "white", borderTop: "1px solid #F3F4F6",
+        padding: "7px 0 11px",
+        display: "flex", justifyContent: "space-around",
+        boxShadow: "0 -4px 20px rgba(0,0,0,0.07)",
+        zIndex: 100, maxWidth: 480, margin: "0 auto",
+        flexDirection: isRTL ? "row-reverse" : "row"
+      }}>
+        {[
+          { icon: "🏠", label: t.nav.home, p: "accueil" },
+          { icon: "📚", label: t.nav.catalogue, p: "catalogue" },
+          { icon: "🎧", label: t.nav.listen, p: "lecture" },
+          { icon: "👤", label: t.nav.profile, p: "profil" },
+          { icon: "⚙️", label: t.nav.admin, p: "admin" },
+        ].map(nav => (
+          <button key={nav.p} className="nav-btn" onClick={() => setPage(nav.p)} style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+            padding: "3px 10px", borderRadius: 12,
+            background: page === nav.p ? "#EDE9FE" : "transparent"
+          }}>
+            <span style={{ fontSize: 20 }}>{nav.icon}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: page === nav.p ? "#7C3AED" : "#9CA3AF", fontFamily }}>
+              {nav.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  ); 
+}
+  
+
+  
