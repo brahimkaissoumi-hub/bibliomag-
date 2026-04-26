@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#6C3BFF"/>
+<title>📖 BiblioMagie</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Righteous&family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+:root{--grape:#6C3BFF;--sky:#00C2FF;--mint:#00E5A0;--sun:#FFD84D;--rose:#FF6B9D;--ink:#1a0533}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Nunito',sans-serif;background:var(--ink);min-height:100vh}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes popIn{0%{transform:scale(0) rotate(-10deg);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes slideDown{from{transform:translateY(-16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.float{animation:floatY 3.5s ease-in-out infinite}
+.pop{animation:popIn .4s cubic-bezier(.34,1.56,.64,1) forwards}
+.su{animation:slideUp .3s ease forwards}
+button{cursor:pointer;border:none;font-family:'Nunito',sans-serif;transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+button:hover{transform:scale(1.04)}
+button:active{transform:scale(.96)}
+input,select{font-family:'Nunito',sans-serif}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#6C3BFF;border-radius:4px}
+.star{position:fixed;border-radius:50%;background:white;pointer-events:none;animation:pulse 2s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useCallback}=React;
+
+// SUPABASE
+const SB_URL="https://riecgkyaahbyyvkwnadh.supabase.co";
+const SB_KEY="sb_publishable_7EeCMMInejutYKwkChaIhQ_3Cayc9gd";
+async function sb(table,params="",opts={}){
+  const r=await fetch(`${SB_URL}/rest/v1/${table}${params}`,{
+    method:opts.method||"GET",
+    headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Prefer":opts.prefer||"return=representation"},
+    body:opts.body?JSON.stringify(opts.body):undefined
+  });
+  const tx=await r.text();
+  if(!r.ok)throw new Error(tx||`err ${r.status}`);
+  return tx?JSON.parse(tx):[];
+}
+
+// TRANSLATIONS
+const T={
+  fr:{app:"BiblioMagie",sub:"École Primaire ✨",hi:"Salut",read:"Continue ta lecture !",
+    books:"Livres",badges:"Badges",month:"Ce mois",
+    home:"Accueil",cat:"Catalogue",listen:"Écoute",profile:"Profil",admin:"Admin",
+    all:"Tous",phys:"Physiques",ebooks:"Ebooks",
+    dispo:"✅ Dispo",emp:"❌ Emprunté",borrowBtn:"📥 Emprunter",reserveBtn:"🔔 Réserver",
+    readBtn:"📖 Lire",returnBtn:"✅ Rendre",myLoans:"Mes emprunts",retBy:"À rendre",
+    addBook:"+ Livre",addStu:"+ Élève",refresh:"🔄",save:"Enregistrer",cancel:"Annuler",
+    code:"Entre ton code magique ✨",ph:"Ex: SARA001",go:"C'est parti ! 🚀",going:"...",wrong:"Code incorrect !",
+    out:"Sortir",pages:"pages",rank:"Rang",noBooks:"Aucun livre",loading:"Chargement...",
+    b1:"1er livre",b3:"Courageux",b5:"5 livres",b10:"10 livres",b15:"Super lecteur",b20:"Champion",
+    tBooks:"Livres",tStu:"Élèves",tLoans:"Emprunts",tLate:"En retard",demo:"Codes démo"},
+  en:{app:"BiblioMagic",sub:"Primary School ✨",hi:"Hey",read:"Keep reading!",
+    books:"Books",badges:"Badges",month:"Month",
+    home:"Home",cat:"Books",listen:"Listen",profile:"Profile",admin:"Admin",
+    all:"All",phys:"Physical",ebooks:"Ebooks",
+    dispo:"✅ Available",emp:"❌ Borrowed",borrowBtn:"📥 Borrow",reserveBtn:"🔔 Reserve",
+    readBtn:"📖 Read",returnBtn:"✅ Return",myLoans:"My loans",retBy:"Return by",
+    addBook:"+ Book",addStu:"+ Student",refresh:"🔄",save:"Save",cancel:"Cancel",
+    code:"Enter your magic code ✨",ph:"Ex: SARA001",go:"Let's go! 🚀",going:"...",wrong:"Wrong code!",
+    out:"Logout",pages:"pages",rank:"Rank",noBooks:"No books",loading:"Loading...",
+    b1:"1st book",b3:"Brave",b5:"5 books",b10:"10 books",b15:"Super reader",b20:"Champion",
+    tBooks:"Books",tStu:"Students",tLoans:"Loans",tLate:"Overdue",demo:"Demo codes"},
+  ar:{app:"مكتبة السحر",sub:"المدرسة الابتدائية ✨",hi:"أهلاً",read:"واصل القراءة!",
+    books:"كتب",badges:"شارات",month:"الشهر",
+    home:"الرئيسية",cat:"الفهرس",listen:"استماع",profile:"ملفي",admin:"إدارة",
+    all:"الكل",phys:"ورقية",ebooks:"إلكترونية",
+    dispo:"✅ متاح",emp:"❌ مستعار",borrowBtn:"📥 استعارة",reserveBtn:"🔔 حجز",
+    readBtn:"📖 قراءة",returnBtn:"✅ إعادة",myLoans:"استعاراتي",retBy:"موعد الإعادة",
+    addBook:"+ كتاب",addStu:"+ طالب",refresh:"🔄",save:"حفظ",cancel:"إلغاء",
+    code:"أدخل رمزك السحري ✨",ph:"مثال: SARA001",go:"هيا! 🚀",going:"...",wrong:"رمز خاطئ!",
+    out:"خروج",pages:"صفحة",rank:"الترتيب",noBooks:"لا توجد كتب",loading:"تحميل...",
+    b1:"أول كتاب",b3:"شجاع",b5:"5 كتب",b10:"10 كتب",b15:"قارئ متميز",b20:"بطل",
+    tBooks:"الكتب",tStu:"الطلاب",tLoans:"الاستعارات",tLate:"متأخر",demo:"رموز تجريبية"}
+};
+
+const LANGS=[{c:"fr",f:"🇫🇷"},{c:"en",f:"🇬🇧"},{c:"ar",f:"🇸🇦"}];
+const BD=(t)=>[
+  {k:"b1",i:"⭐",l:t.b1,col:"#FFD84D",m:1},{k:"b3",i:"🦁",l:t.b3,col:"#A855F7",m:3},
+  {k:"b5",i:"🔥",l:t.b5,col:"#FF6B9D",m:5},{k:"b10",i:"🚀",l:t.b10,col:"#00C2FF",m:10},
+  {k:"b15",i:"🌟",l:t.b15,col:"#00E5A0",m:15},{k:"b20",i:"👑",l:t.b20,col:"#FFD84D",m:20},
+];
+const COLORS=["#FDE68A","#BBF7D0","#BFDBFE","#FCA5A5","#DDD6FE","#FED7AA","#A7F3D0","#FBCFE8"];
+const EMOJIS=["📚","👑","🐇","🦊","🤥","🏔️","🌈","🐉","🦄","⚡","🎭","🌺"];
+const AVATS=["🧒","👦","👧","🦊","🐻","🦁","🐯","🌟","🎈","🦋","🐼","🌙"];
+
+// Stars background component
+function Stars(){
+  const s=Array.from({length:18},(_,i)=>({id:i,l:`${Math.random()*100}%`,t:`${Math.random()*100}%`,sz:Math.random()*2.5+1,del:`${Math.random()*3}s`,dur:`${1.5+Math.random()*2}s`}));
+  return <>{s.map(x=><div key={x.id} className="star" style={{left:x.l,top:x.t,width:x.sz,height:x.sz,opacity:Math.random()*.5+.15,animationDuration:x.dur,animationDelay:x.del,zIndex:0}}/>)}</>;
+}
+
+// Toast
+function Toast({t}){
+  if(!t)return null;
+  return <div style={{position:"fixed",top:18,left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#1a0533,#2d0a5e)",color:"white",borderRadius:20,padding:"12px 22px",zIndex:9999,fontWeight:800,fontSize:14,display:"flex",gap:8,alignItems:"center",boxShadow:"0 8px 32px rgba(108,59,255,0.5)",whiteSpace:"nowrap",border:"1px solid rgba(108,59,255,0.4)",animation:"slideDown .3s ease"}}><span style={{fontSize:18}}>{t.i}</span>{t.m}</div>;
+}
+
+function App(){
+  const[lang,setLang]=useState("fr");
+  const[page,setPage]=useState("home");
+  const[filtre,setFiltre]=useState("all");
+  const[bModal,setBModal]=useState(null);
+  const[play,setPlay]=useState(false);
+  const[toast,setToast]=useState(null);
+  const[showLang,setShowLang]=useState(false);
+  const[user,setUser]=useState(null);
+  const[code,setCode]=useState("");
+  const[err,setErr]=useState("");
+  const[logging,setLogging]=useState(false);
+  const[livres,setLivres]=useState([]);
+  const[eleves,setEleves]=useState([]);
+  const[emps,setEmps]=useState([]);
+  const[mesEmp,setMesEmp]=useState([]);
+  const[mesBdg,setMesBdg]=useState([]);
+  const[loaded,setLoaded]=useState(false);
+  const[showAB,setShowAB]=useState(false);
+  const[showAS,setShowAS]=useState(false);
+  const[saving,setSaving]=useState(false);
+  const[nb,setNb]=useState({titre_fr:"",titre_en:"",titre_ar:"",auteur:"",cover_emoji:"📚",type:"physique",genre_fr:"Conte",pages:100,couleur:"#FDE68A",disponible:true});
+  const[ns,setNs]=useState({nom:"",code_acces:"",classe:"CM1",avatar:"🧒",role:"eleve"});
+
+  const t=T[lang],rtl=lang==="ar",dir=rtl?"rtl":"ltr",ff=rtl?"'Cairo',sans-serif":"'Nunito',sans-serif";
+
+  const toast2=(m,i="✅",ms=2800)=>{setToast({m,i});setTimeout(()=>setToast(null),ms);};
+
+  const loadAll=useCallback(async(uid,role)=>{
+    try{
+      const[lv,el,em,me,bd]=await Promise.all([
+        sb("livres","?order=titre_fr.asc"),
+        role==="admin"?sb("eleves","?order=nom.asc"):Promise.resolve([]),
+        role==="admin"?sb("emprunts","?rendu=eq.false&select=*,eleves(nom,avatar),livres(titre_fr,titre_en,titre_ar,cover_emoji,couleur)"):Promise.resolve([]),
+        sb("emprunts",`?eleve_id=eq.${uid}&rendu=eq.false&select=*,livres(id,titre_fr,titre_en,titre_ar,cover_emoji,couleur)`),
+        sb("badges",`?eleve_id=eq.${uid}`)
+      ]);
+      setLivres(lv);setEleves(el);setEmps(em);setMesEmp(me);setMesBdg(bd.map(b=>b.badge_key));setLoaded(true);
+    }catch(e){toast2("Erreur: "+e.message,"❌");}
+  },[]);
+
+  const login=async()=>{
+    const c=code.trim().toUpperCase();if(!c)return;
+    setLogging(true);setErr("");
+    try{
+      const r=await sb("eleves",`?code_acces=eq.${c}&limit=1`);
+      if(!r.length)setErr(t.wrong);
+      else{setUser(r[0]);await loadAll(r[0].id,r[0].role);}
+    }catch(e){setErr("Err: "+e.message);}
+    setLogging(false);
+  };
+
+  const borrow=async(l)=>{
+    try{
+      await sb("emprunts","",{method:"POST",body:{eleve_id:user.id,livre_id:l.id}});
+      await sb("livres",`?id=eq.${l.id}`,{method:"PATCH",prefer:"return=minimal",body:{disponible:false}});
+      toast2("Emprunté ! 🎉","🎉");setBModal(null);
+      const nc=mesEmp.length+1;await loadAll(user.id,user.role);
+      for(const b of BD(t)){if(nc>=b.m&&!mesBdg.includes(b.k)){try{await sb("badges","",{method:"POST",body:{eleve_id:user.id,badge_key:b.k}});toast2(`🏆 ${b.l} !`,"🌟",3500);}catch{}}}
+    }catch(e){toast2("Erreur","❌");}
+  };
+
+  const ret=async(eid,lid)=>{
+    try{
+      await sb("emprunts",`?id=eq.${eid}`,{method:"PATCH",prefer:"return=minimal",body:{rendu:true}});
+      await sb("livres",`?id=eq.${lid}`,{method:"PATCH",prefer:"return=minimal",body:{disponible:true}});
+      toast2("Rendu ! ✅","📗");await loadAll(user.id,user.role);
+    }catch(e){toast2("Erreur","❌");}
+  };
+
+  const addBook=async()=>{
+    setSaving(true);
+    try{await sb("livres","",{method:"POST",body:nb});toast2("Ajouté !","📚");setShowAB(false);setNb({titre_fr:"",titre_en:"",titre_ar:"",auteur:"",cover_emoji:"📚",type:"physique",genre_fr:"Conte",pages:100,couleur:"#FDE68A",disponible:true});await loadAll(user.id,user.role);}
+    catch(e){toast2("Err: "+e.message,"❌");}
+    setSaving(false);
+  };
+
+  const addStu=async()=>{
+    setSaving(true);
+    try{await sb("eleves","",{method:"POST",body:{...ns,code_acces:ns.code_acces.toUpperCase()}});toast2("Ajouté !","👧");setShowAS(false);setNs({nom:"",code_acces:"",classe:"CM1",avatar:"🧒",role:"eleve"});await loadAll(user.id,user.role);}
+    catch(e){toast2("Err: "+e.message,"❌");}
+    setSaving(false);
+  };
+
+  const gt=(l)=>l?(l[`titre_${lang}`]||l.titre_fr||""):"";
+  const lf=livres.filter(l=>filtre==="all"?true:filtre==="physique"?l.type==="physique":l.type==="ebook");
+  const bd=BD(t).map(b=>({...b,earned:mesBdg.includes(b.k)}));
+
+  // STYLES
+  const G={hero:"linear-gradient(135deg,#6C3BFF,#00C2FF)",warm:"linear-gradient(135deg,#FF6B9D,#FFD84D)",mint:"linear-gradient(135deg,#00E5A0,#00C2FF)",night:"linear-gradient(160deg,#1a0533 0%,#2d0a5e 50%,#0a1a3e 100%)"};
+  const glass="rgba(255,255,255,0.06)";
+  const glassBorder="1px solid rgba(255,255,255,0.1)";
+
+  // INPUT STYLE
+  const inp={width:"100%",padding:"11px 14px",borderRadius:13,border:"1px solid rgba(108,59,255,0.3)",background:"rgba(255,255,255,0.06)",color:"white",fontSize:14,fontWeight:600,outline:"none"};
+  const lbl={fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",marginBottom:5,textAlign:rtl?"right":"left"};
+
+  /* ═══════════════════════════
+     LOGIN
+  ═══════════════════════════ */
+  if(!user) return(
+    <div dir={dir} style={{minHeight:"100vh",background:G.night,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:ff,position:"relative",overflow:"hidden"}}>
+      <Stars/>
+      {/* Glow orbs */}
+      <div style={{position:"fixed",top:-120,left:-80,width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(108,59,255,0.25),transparent 70%)",pointerEvents:"none",zIndex:0}}/>
+      <div style={{position:"fixed",bottom:-80,right:-60,width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,194,255,0.15),transparent 70%)",pointerEvents:"none",zIndex:0}}/>
+      <Toast t={toast}/>
+
+      {/* Logo */}
+      <div style={{textAlign:"center",marginBottom:32,position:"relative",zIndex:1}}>
+        <div className="float" style={{fontSize:76,marginBottom:10,filter:"drop-shadow(0 0 24px rgba(255,216,77,0.7))"}}>📖</div>
+        <div style={{fontFamily:"'Righteous',cursive",fontSize:36,color:"white",letterSpacing:2,textShadow:"0 0 40px rgba(108,59,255,0.9)"}}>{t.app}</div>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:12,fontWeight:700,marginTop:5,letterSpacing:3}}>{t.sub}</div>
+      </div>
+
+      {/* Lang */}
+      <div style={{display:"flex",gap:10,marginBottom:28,position:"relative",zIndex:1}}>
+        {LANGS.map(l=>(
+          <button key={l.c} onClick={()=>setLang(l.c)} style={{background:lang===l.c?"rgba(108,59,255,0.4)":"rgba(255,255,255,0.06)",border:lang===l.c?"2px solid rgba(108,59,255,0.7)":"2px solid rgba(255,255,255,0.12)",borderRadius:40,padding:"8px 16px",color:"white",fontSize:20,boxShadow:lang===l.c?"0 4px 16px rgba(108,59,255,0.4)":"none"}}>{l.f}</button>
+        ))}
+      </div>
+
+      {/* Card */}
+      <div style={{background:"rgba(255,255,255,0.06)",backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:32,padding:30,width:"100%",maxWidth:380,boxShadow:"0 32px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)",position:"relative",zIndex:1}}>
+        <div style={{fontWeight:800,fontSize:14,color:"rgba(255,255,255,0.6)",marginBottom:16,textAlign:rtl?"right":"left"}}>{t.code}</div>
+
+        <input value={code} onChange={e=>{setCode(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&login()} placeholder={t.ph}
+          style={{width:"100%",padding:"16px",borderRadius:18,border:err?"2px solid #FF6B9D":code?"2px solid #6C3BFF":"2px solid rgba(255,255,255,0.12)",fontSize:22,fontWeight:900,letterSpacing:5,textAlign:"center",background:"rgba(255,255,255,0.07)",color:"white",outline:"none",marginBottom:err?8:16,transition:"all .2s",boxShadow:code?"0 0 0 4px rgba(108,59,255,0.15)":"none"}}/>
+        {err&&<div style={{color:"#FF6B9D",fontSize:13,fontWeight:700,marginBottom:12,textAlign:"center"}}>{err}</div>}
+
+        <button onClick={login} disabled={logging||!code.trim()} style={{width:"100%",padding:"16px",borderRadius:18,background:code.trim()?G.hero:"rgba(255,255,255,0.08)",color:"white",fontWeight:900,fontSize:16,boxShadow:code.trim()?"0 8px 32px rgba(108,59,255,0.5)":"none",opacity:logging?0.7:1}}>{logging?t.going:t.go}</button>
+
+        {/* Demo codes */}
+        <div style={{marginTop:20,padding:"14px",background:"rgba(255,255,255,0.04)",borderRadius:18,border:"1px solid rgba(255,255,255,0.08)"}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:800,marginBottom:10,textAlign:"center",letterSpacing:2}}>{t.demo.toUpperCase()}</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:7,justifyContent:"center"}}>
+            {[["ADMIN123","⚙️"],["SARA001","🧒"],["KARIM002","👦"],["LINA003","👧"]].map(([c,ic])=>(
+              <button key={c} onClick={()=>{setCode(c);setErr("");}} style={{background:"rgba(108,59,255,0.2)",color:"#C4B5FD",borderRadius:12,padding:"6px 12px",fontSize:12,fontWeight:800,border:"1px solid rgba(108,59,255,0.35)",display:"flex",alignItems:"center",gap:5}}>{ic} {c}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{marginTop:20,color:"rgba(255,255,255,0.2)",fontSize:11,textAlign:"center",position:"relative",zIndex:1,lineHeight:1.8}}>
+        🌍 Français · English · العربية<br/>🤲 Sadaqa Jariya — Pour les enfants du monde
+      </div>
+    </div>
+  );
+
+  /* ═══════════════════════════
+     MAIN
+  ═══════════════════════════ */
+
+  // Modals
+  const BkModal=()=>bModal?(
+    <div style={{position:"fixed",inset:0,background:"rgba(10,5,20,0.85)",zIndex:300,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}} onClick={()=>setBModal(null)}>
+      <div className="pop" dir={dir} onClick={e=>e.stopPropagation()} style={{background:"linear-gradient(160deg,#1e0a3c,#0a1a3e)",border:"1px solid rgba(108,59,255,0.35)",borderRadius:"28px 28px 0 0",padding:26,width:"100%",maxWidth:480,margin:"0 auto",fontFamily:ff,boxShadow:"0 -20px 60px rgba(108,59,255,0.25)"}}>
+        <div style={{display:"flex",gap:14,marginBottom:20,flexDirection:rtl?"row-reverse":"row"}}>
+          <div style={{width:72,height:90,borderRadius:18,background:bModal.couleur||"#FDE68A",display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,flexShrink:0,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>{bModal.cover_emoji||"📚"}</div>
+          <div style={{textAlign:rtl?"right":"left"}}>
+            <div style={{fontWeight:900,fontSize:18,color:"white",lineHeight:1.3}}>{gt(bModal)}</div>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:13,marginTop:4}}>{bModal.auteur}</div>
+            <div style={{marginTop:8,display:"flex",gap:6,flexWrap:"wrap",justifyContent:rtl?"flex-end":"flex-start"}}>
+              <span style={{background:"rgba(108,59,255,0.2)",color:"#C4B5FD",fontSize:11,fontWeight:700,borderRadius:8,padding:"3px 9px",border:"1px solid rgba(108,59,255,0.3)"}}>{bModal.type==="ebook"?"📱 Ebook":"📗 Physique"}</span>
+              <span style={{background:"rgba(255,255,255,0.07)",color:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:700,borderRadius:8,padding:"3px 9px"}}>{bModal.pages} {t.pages}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:10,flexDirection:rtl?"row-reverse":"row"}}>
+          {(bModal.disponible??bModal.dispo)?(
+            <button onClick={()=>borrow(bModal)} style={{flex:1,padding:14,borderRadius:16,background:G.hero,color:"white",fontWeight:900,fontSize:14,boxShadow:"0 8px 24px rgba(108,59,255,0.4)"}}>{t.borrowBtn}</button>
+          ):(
+            <button onClick={()=>{toast2("Réservé ! 🔔","🔔");setBModal(null);}} style={{flex:1,padding:14,borderRadius:16,background:G.warm,color:"white",fontWeight:900,fontSize:14}}>{t.reserveBtn}</button>
+          )}
+          {bModal.type==="ebook"&&(
+            <button onClick={()=>{setBModal(null);setPage("listen");}} style={{flex:1,padding:14,borderRadius:16,background:G.mint,color:"#0a1a3e",fontWeight:900,fontSize:14}}>{t.readBtn}</button>
+          )}
+        </div>
+      </div>
+    </div>
+  ):null;
+
+  const AbModal=()=>showAB?(
+    <div style={{position:"fixed",inset:0,background:"rgba(10,5,20,0.9)",zIndex:400,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}} onClick={()=>setShowAB(false)}>
+      <div dir={dir} onClick={e=>e.stopPropagation()} style={{background:"linear-gradient(160deg,#1e0a3c,#0a1a3e)",border:"1px solid rgba(108,59,255,0.3)",borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:480,margin:"0 auto",maxHeight:"85vh",overflowY:"auto",fontFamily:ff}}>
+        <div style={{fontWeight:900,fontSize:17,color:"white",marginBottom:16,textAlign:rtl?"right":"left"}}>📚 {t.addBook}</div>
+        {[["Titre FR","titre_fr"],["Titre EN","titre_en"],["Titre AR","titre_ar"],["Auteur","auteur"]].map(([lb,k])=>(
+          <div key={k} style={{marginBottom:10}}>
+            <div style={lbl}>{lb}</div>
+            <input value={nb[k]||""} onChange={e=>setNb(p=>({...p,[k]:e.target.value}))} style={inp}/>
+          </div>
+        ))}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <div><div style={lbl}>Pages</div><input type="number" value={nb.pages} onChange={e=>setNb(p=>({...p,pages:+e.target.value}))} style={inp}/></div>
+          <div><div style={lbl}>Type</div><select value={nb.type} onChange={e=>setNb(p=>({...p,type:e.target.value}))} style={{...inp,background:"#1e0a3c"}}><option value="physique">Physique</option><option value="ebook">Ebook</option></select></div>
+        </div>
+        <div style={{marginBottom:12}}><div style={{...lbl,marginBottom:8}}>Emoji</div><div style={{display:"flex",flexWrap:"wrap",gap:7}}>{EMOJIS.map(em=><button key={em} onClick={()=>setNb(p=>({...p,cover_emoji:em}))} style={{fontSize:22,padding:7,borderRadius:10,border:"2px solid",borderColor:nb.cover_emoji===em?"#6C3BFF":"transparent",background:nb.cover_emoji===em?"rgba(108,59,255,0.25)":"rgba(255,255,255,0.04)"}}>{em}</button>)}</div></div>
+        <div style={{marginBottom:16}}><div style={{...lbl,marginBottom:8}}>Couleur</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{COLORS.map(c=><button key={c} onClick={()=>setNb(p=>({...p,couleur:c}))} style={{width:30,height:30,borderRadius:"50%",background:c,border:`3px solid ${nb.couleur===c?"white":"transparent"}`}}/>)}</div></div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setShowAB(false)} style={{flex:1,padding:13,borderRadius:14,background:"rgba(255,255,255,0.07)",color:"rgba(255,255,255,0.6)",fontWeight:700}}>{t.cancel}</button>
+          <button onClick={addBook} disabled={saving||!nb.titre_fr.trim()} style={{flex:2,padding:13,borderRadius:14,background:G.hero,color:"white",fontWeight:900,opacity:saving?0.6:1}}>{saving?"...":t.save}</button>
+        </div>
+      </div>
+    </div>
+  ):null;
+
+  const AsModal=()=>showAS?(
+    <div style={{position:"fixed",inset:0,background:"rgba(10,5,20,0.9)",zIndex:400,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}} onClick={()=>setShowAS(false)}>
+      <div dir={dir} onClick={e=>e.stopPropagation()} style={{background:"linear-gradient(160deg,#1e0a3c,#0a1a3e)",border:"1px solid rgba(108,59,255,0.3)",borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:480,margin:"0 auto",fontFamily:ff}}>
+        <div style={{fontWeight:900,fontSize:17,color:"white",marginBottom:16,textAlign:rtl?"right":"left"}}>👧 {t.addStu}</div>
+        {[["Prénom","nom"],["Code","code_acces"],["Classe","classe"]].map(([lb,k])=>(
+          <div key={k} style={{marginBottom:10}}><div style={lbl}>{lb}</div><input value={ns[k]} onChange={e=>setNs(p=>({...p,[k]:e.target.value}))} style={inp}/></div>
+        ))}
+        <div style={{marginBottom:10}}><div style={{...lbl,marginBottom:8}}>Avatar</div><div style={{display:"flex",flexWrap:"wrap",gap:7}}>{AVATS.map(av=><button key={av} onClick={()=>setNs(p=>({...p,avatar:av}))} style={{fontSize:24,padding:6,borderRadius:10,border:"2px solid",borderColor:ns.avatar===av?"#6C3BFF":"transparent",background:ns.avatar===av?"rgba(108,59,255,0.25)":"rgba(255,255,255,0.04)"}}>{av}</button>)}</div></div>
+        <div style={{marginBottom:16}}><div style={lbl}>Rôle</div><select value={ns.role} onChange={e=>setNs(p=>({...p,role:e.target.value}))} style={{...inp,background:"#1e0a3c"}}><option value="eleve">Élève</option><option value="admin">Admin</option></select></div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setShowAS(false)} style={{flex:1,padding:13,borderRadius:14,background:"rgba(255,255,255,0.07)",color:"rgba(255,255,255,0.6)",fontWeight:700}}>{t.cancel}</button>
+          <button onClick={addStu} disabled={saving||!ns.nom.trim()||!ns.code_acces.trim()} style={{flex:2,padding:13,borderRadius:14,background:G.mint,color:"#0a1a3e",fontWeight:900,opacity:saving?0.6:1}}>{saving?"...":t.save}</button>
+        </div>
+      </div>
+    </div>
+  ):null;
+
+  const LangPicker=()=>showLang?(
+    <div style={{position:"fixed",inset:0,background:"rgba(10,5,20,0.8)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(8px)"}} onClick={()=>setShowLang(false)}>
+      <div className="pop" onClick={e=>e.stopPropagation()} style={{background:"linear-gradient(160deg,#1e0a3c,#0a1a3e)",border:"1px solid rgba(108,59,255,0.3)",borderRadius:28,padding:26,width:260,boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+        <div style={{fontWeight:900,fontSize:16,color:"white",marginBottom:14,textAlign:"center"}}>🌍 Langue</div>
+        {LANGS.map(l=>(
+          <button key={l.c} onClick={()=>{setLang(l.c);setShowLang(false);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,marginBottom:8,fontFamily:ff,background:lang===l.c?"rgba(108,59,255,0.25)":"rgba(255,255,255,0.04)",border:lang===l.c?"1px solid rgba(108,59,255,0.5)":"1px solid transparent"}}>
+            <span style={{fontSize:24}}>{l.f}</span>
+            <span style={{fontWeight:800,fontSize:14,color:"white"}}>{l.c==="fr"?"Français":l.c==="en"?"English":"العربية"}</span>
+            {lang===l.c&&<span style={{marginLeft:"auto",color:"#6C3BFF",fontSize:18}}>✓</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  ):null;
+
+  return(
+    <div dir={dir} style={{minHeight:"100vh",background:G.night,fontFamily:ff,position:"relative"}}>
+      <Stars/>
+      <Toast t={toast}/>
+      <BkModal/><AbModal/><AsModal/><LangPicker/>
+
+      {/* HEADER */}
+      <div style={{background:"rgba(26,5,51,0.88)",backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(108,59,255,0.15)",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,flexDirection:rtl?"row-reverse":"row"}}>
+        <div style={{display:"flex",alignItems:"center",gap:9,flexDirection:rtl?"row-reverse":"row"}}>
+          <span className="float" style={{fontSize:24,filter:"drop-shadow(0 0 8px rgba(255,216,77,0.6))"}}>📖</span>
+          <div style={{textAlign:rtl?"right":"left"}}>
+            <div style={{fontFamily:"'Righteous',cursive",fontSize:18,color:"white",textShadow:"0 0 20px rgba(108,59,255,0.7)"}}>{t.app}</div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,0.35)",fontWeight:600}}>{t.sub}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:7,flexDirection:rtl?"row-reverse":"row"}}>
+          <button onClick={()=>setShowLang(true)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:20,padding:"5px 10px",display:"flex",alignItems:"center",gap:4}}>
+            <span style={{fontSize:15}}>{LANGS.find(l=>l.c===lang)?.f}</span>
+            <span style={{color:"rgba(255,255,255,0.6)",fontWeight:700,fontSize:11}}>{lang.toUpperCase()}</span>
+          </button>
+          <div style={{background:"linear-gradient(135deg,#FFD84D,#FF6B9D)",borderRadius:20,padding:"4px 10px",fontWeight:900,fontSize:12,color:"#1a0533",boxShadow:"0 4px 12px rgba(255,216,77,0.35)"}}>⭐ {bd.filter(b=>b.earned).length}</div>
+          <button onClick={()=>{setUser(null);setPage("home");setCode("");setLoaded(false);}} style={{background:"rgba(255,107,157,0.12)",border:"1px solid rgba(255,107,157,0.25)",borderRadius:20,padding:"5px 10px",color:"rgba(255,107,157,0.85)",fontWeight:700,fontSize:11}}>{t.out}</button>
+        </div>
+      </div>
+
+      {/* CONTENT */}
+      <div style={{padding:"0 0 84px",maxWidth:480,margin:"0 auto",position:"relative",zIndex:1}}>
+
+        {/* HOME */}
+        {page==="home"&&(
+          <div className="su" style={{padding:"16px 14px"}}>
+            {/* Hero */}
+            <div style={{background:G.hero,borderRadius:28,padding:"22px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 16px 48px rgba(108,59,255,0.35)",flexDirection:rtl?"row-reverse":"row",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:-40,right:rtl?"auto":50,left:rtl?50:"auto",width:130,height:130,borderRadius:"50%",background:"rgba(255,255,255,0.08)",pointerEvents:"none"}}/>
+              <div style={{position:"relative",textAlign:rtl?"right":"left"}}>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.8)",fontWeight:700}}>{t.hi} {user.nom} ! 👋</div>
+                <div style={{fontSize:20,fontWeight:900,color:"white",fontFamily:"'Righteous',cursive",lineHeight:1.3,marginTop:2}}>{t.read}</div>
+                {mesEmp[0]&&<div style={{marginTop:10,background:"rgba(255,255,255,0.18)",borderRadius:10,padding:"5px 12px",display:"inline-block"}}><span style={{color:"white",fontSize:11,fontWeight:700}}>📘 {gt(mesEmp[0].livres)}</span></div>}
+              </div>
+              <span className="float" style={{fontSize:54,position:"relative",filter:"drop-shadow(0 0 16px rgba(255,255,255,0.25))"}}>{user.avatar}</span>
+            </div>
+
+            {/* Stats */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+              {[
+                {i:"📚",v:mesEmp.length,l:t.books,g:"rgba(255,216,77,0.12)",b:"rgba(255,216,77,0.25)",c:"#FFD84D"},
+                {i:"🏅",v:bd.filter(b=>b.earned).length,l:t.badges,g:"rgba(108,59,255,0.12)",b:"rgba(108,59,255,0.25)",c:"#C4B5FD"},
+                {i:"✨",v:user.role==="admin"?"👑":"🌱",l:user.role==="admin"?"Admin":t.month,g:"rgba(0,229,160,0.12)",b:"rgba(0,229,160,0.25)",c:"#00E5A0"},
+              ].map((s,i)=>(
+                <div key={i} style={{background:s.g,borderRadius:18,padding:"14px 8px",textAlign:"center",border:`1px solid ${s.b}`,backdropFilter:"blur(8px)"}}>
+                  <div style={{fontSize:22}}>{s.i}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:s.c,fontFamily:"'Righteous',cursive"}}>{s.v}</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:700}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Badges preview */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:900,fontSize:15,color:"white",marginBottom:11,display:"flex",justifyContent:"space-between",alignItems:"center",flexDirection:rtl?"row-reverse":"row"}}>
+                <span>🏆 {t.badges}</span>
+                <span onClick={()=>setPage("profile")} style={{fontSize:11,color:"#6C3BFF",fontWeight:700,cursor:"pointer",background:"rgba(108,59,255,0.12)",padding:"4px 10px",borderRadius:20,border:"1px solid rgba(108,59,255,0.25)"}}>{t.badges}</span>
+              </div>
+              <div style={{display:"flex",gap:7,flexDirection:rtl?"row-reverse":"row"}}>
+                {bd.slice(0,5).map(b=>(
+                  <div key={b.k} style={{flex:1,textAlign:"center",background:b.earned?`${b.col}18`:"rgba(255,255,255,0.03)",border:`1px solid ${b.earned?b.col:"rgba(255,255,255,0.08)"}`,borderRadius:14,padding:"8px 4px",opacity:b.earned?1:0.35,boxShadow:b.earned?`0 4px 12px ${b.col}33`:"none",transition:"all .3s"}}>
+                    <div style={{fontSize:19,filter:b.earned?`drop-shadow(0 0 6px ${b.col})`:"none"}}>{b.earned?b.i:"🔒"}</div>
+                    <div style={{fontSize:8,fontWeight:700,color:b.earned?"white":"rgba(255,255,255,0.25)",marginTop:3,lineHeight:1.2}}>{b.l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick access */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+              {[
+                {i:"📖",l:t.cat,g:G.hero,gl:"rgba(108,59,255,0.4)",p:"catalogue"},
+                {i:"🎧",l:t.listen,g:G.warm,gl:"rgba(255,107,157,0.35)",p:"listen"},
+                {i:"👤",l:t.profile,g:"linear-gradient(135deg,#A855F7,#EC4899)",gl:"rgba(168,85,247,0.35)",p:"profile"},
+                user.role==="admin"?{i:"⚙️",l:"Admin",g:"linear-gradient(135deg,#374151,#111827)",gl:"rgba(55,65,81,0.3)",p:"admin"}:{i:"📱",l:t.ebooks,g:G.mint,gl:"rgba(0,229,160,0.3)",p:"catalogue"},
+              ].map((x,i)=>(
+                <button key={i} onClick={()=>setPage(x.p)} style={{background:x.g,borderRadius:22,padding:"18px 16px",textAlign:rtl?"right":"left",boxShadow:`0 8px 24px ${x.gl}`,color:"white"}}>
+                  <div style={{fontSize:32,marginBottom:7,filter:"drop-shadow(0 0 8px rgba(255,255,255,0.25))"}}>{x.i}</div>
+                  <div style={{fontWeight:900,fontSize:14,fontFamily:"'Righteous',cursive"}}>{x.l}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CATALOGUE */}
+        {page==="catalogue"&&(
+          <div className="su" style={{padding:"16px 14px"}}>
+            <div style={{fontFamily:"'Righteous',cursive",fontSize:24,color:"white",marginBottom:4,textAlign:rtl?"right":"left"}}>📚 {t.cat}</div>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:12,fontWeight:600,marginBottom:14,textAlign:rtl?"right":"left"}}>{livres.filter(l=>l.disponible).length} {t.dispo.replace("✅ ","")}</div>
+            <div style={{display:"flex",gap:7,marginBottom:14,flexDirection:rtl?"row-reverse":"row"}}>
+              {[["all",t.all],["physique",t.phys],["ebook",t.ebooks]].map(([k,lb])=>(
+                <button key={k} onClick={()=>setFiltre(k)} style={{padding:"8px 14px",borderRadius:20,fontWeight:800,fontSize:12,background:filtre===k?G.hero:"rgba(255,255,255,0.06)",color:filtre===k?"white":"rgba(255,255,255,0.45)",border:filtre===k?"none":"1px solid rgba(255,255,255,0.08)",boxShadow:filtre===k?"0 4px 16px rgba(108,59,255,0.4)":"none"}}>{lb}</button>
+              ))}
+            </div>
+            {lf.length===0?(
+              <div style={{textAlign:"center",padding:40,color:"rgba(255,255,255,0.25)",fontWeight:700}}>{loaded?t.noBooks:t.loading}</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {lf.map(l=>(
+                  <button key={l.id} onClick={()=>setBModal(l)} style={{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",borderRadius:20,padding:13,display:"flex",gap:12,alignItems:"center",border:"1px solid rgba(255,255,255,0.07)",textAlign:rtl?"right":"left",flexDirection:rtl?"row-reverse":"row",boxShadow:"0 4px 16px rgba(0,0,0,0.2)"}}>
+                    <div style={{width:56,height:70,borderRadius:14,background:l.couleur||"#FDE68A",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0,boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>{l.cover_emoji||"📚"}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800,fontSize:14,color:"white"}}>{gt(l)}</div>
+                      <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",fontWeight:600,margin:"3px 0 7px"}}>{l.auteur}</div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:rtl?"flex-end":"flex-start"}}>
+                        <span style={{background:l.type==="ebook"?"rgba(0,229,160,0.12)":"rgba(0,194,255,0.12)",color:l.type==="ebook"?"#00E5A0":"#00C2FF",fontSize:10,fontWeight:700,borderRadius:8,padding:"2px 8px",border:`1px solid ${l.type==="ebook"?"rgba(0,229,160,0.25)":"rgba(0,194,255,0.25)"}`}}>{l.type==="ebook"?t.ebooks:t.phys}</span>
+                        <span style={{background:(l.disponible??l.dispo)?"rgba(0,229,160,0.1)":"rgba(255,107,157,0.1)",color:(l.disponible??l.dispo)?"#00E5A0":"#FF6B9D",fontSize:10,fontWeight:700,borderRadius:8,padding:"2px 8px",border:`1px solid ${(l.disponible??l.dispo)?"rgba(0,229,160,0.25)":"rgba(255,107,157,0.25)"}`}}>{(l.disponible??l.dispo)?t.dispo:t.emp}</span>
+                      </div>
+                    </div>
+                    <div style={{fontSize:9,color:"rgba(255,255,255,0.2)",fontWeight:700,flexShrink:0}}>{l.pages}p</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* LISTEN */}
+        {page==="listen"&&(
+          <div className="su" style={{padding:"16px 14px"}}>
+            <div style={{fontFamily:"'Righteous',cursive",fontSize:24,color:"white",marginBottom:16,textAlign:rtl?"right":"left"}}>🎧 {t.listen}</div>
+            <div style={{background:"linear-gradient(160deg,#1e0a3c,#0a1a3e)",border:"1px solid rgba(108,59,255,0.25)",borderRadius:32,padding:26,marginBottom:14,textAlign:"center",boxShadow:"0 20px 60px rgba(108,59,255,0.25)",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:-60,left:"50%",transform:"translateX(-50%)",width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(108,59,255,0.15),transparent 70%)",pointerEvents:"none"}}/>
+              <div className="float" style={{fontSize:64,marginBottom:10,position:"relative",filter:"drop-shadow(0 0 20px rgba(108,59,255,0.5))"}}>{mesEmp[0]?.livres?.cover_emoji||"📖"}</div>
+              <div style={{fontFamily:"'Righteous',cursive",fontSize:20,color:"white",position:"relative"}}>{mesEmp[0]?gt(mesEmp[0].livres):t.listen}</div>
+              <div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:18,position:"relative"}}>BiblioMagie</div>
+              <div style={{background:"rgba(255,255,255,0.07)",borderRadius:8,height:6,marginBottom:5,overflow:"hidden",position:"relative"}}>
+                <div style={{width:"44%",height:"100%",background:G.hero,borderRadius:8,float:rtl?"right":"left"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"rgba(255,255,255,0.3)",marginBottom:22,flexDirection:rtl?"row-reverse":"row"}}>
+                <span>0:00</span><span>44%</span><span>12:30</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:18}}>
+                <button style={{background:"rgba(255,255,255,0.07)",borderRadius:"50%",width:42,height:42,fontSize:16,color:"rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.1)"}}>⏮</button>
+                <button onClick={()=>{setPlay(!play);toast2(play?"Pause":"Lecture !",play?"⏸":"🎧");}} style={{background:play?G.mint:G.hero,borderRadius:"50%",width:62,height:62,fontSize:26,border:"none",boxShadow:play?"0 8px 24px rgba(0,229,160,0.45)":"0 8px 24px rgba(108,59,255,0.45)"}}>{play?"⏸":"▶️"}</button>
+                <button style={{background:"rgba(255,255,255,0.07)",borderRadius:"50%",width:42,height:42,fontSize:16,color:"rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.1)"}}>⏭</button>
+              </div>
+            </div>
+            <div style={{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",borderRadius:20,padding:16,marginBottom:12,border:"1px solid rgba(255,255,255,0.06)"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#6C3BFF",marginBottom:9,textAlign:rtl?"right":"left"}}>📄 {t.chap||"Lecture en cours"}</div>
+              {(lang==="ar"?["حين كنت في السادسة من عمري رأيت مرة صورة رائعة...","في كتاب عن الغابات البكر «قصص حقيقية».","كانت تمثّل ثعباناً يبتلع حيواناً مفترساً."]:lang==="en"?["When I was six I saw a magnificent picture...","in a book about the Virgin Forest.","It showed a boa constrictor swallowing an animal."]:["Lorsque j'avais six ans j'ai vu une magnifique image...","dans un livre «Histoires Vécues» sur la Forêt Vierge.","Ça représentait un boa qui avalait un fauve."]).map((l,i)=>(
+                <div key={i} style={{fontSize:14,lineHeight:1.9,fontWeight:i===0?700:500,color:i===0?"white":"rgba(255,255,255,0.45)",background:play&&i===0?"rgba(108,59,255,0.15)":"transparent",borderRadius:6,padding:"2px 6px",transition:"background .4s",textAlign:rtl?"right":"left"}}>{l}</div>
+              ))}
+            </div>
+            <div style={{background:"rgba(255,255,255,0.04)",borderRadius:18,padding:13,border:"1px solid rgba(255,255,255,0.06)"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.4)",marginBottom:9,textAlign:rtl?"right":"left"}}>{t.speed||"Vitesse"}</div>
+              <div style={{display:"flex",gap:7,flexDirection:rtl?"row-reverse":"row"}}>
+                {["0.75x","1x","1.25x","1.5x"].map((v,i)=>(
+                  <button key={i} style={{flex:1,padding:"9px 3px",borderRadius:11,fontWeight:800,fontSize:11,background:i===1?G.hero:"rgba(255,255,255,0.05)",color:i===1?"white":"rgba(255,255,255,0.4)",border:i===1?"none":"1px solid rgba(255,255,255,0.07)",boxShadow:i===1?"0 4px 12px rgba(108,59,255,0.4)":"none"}}>{v}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PROFILE */}
+        {page==="profile"&&(
+          <div className="su" style={{padding:"16px 14px"}}>
+            <div style={{background:"linear-gradient(135deg,#A855F7,#EC4899,#FF6B9D)",borderRadius:28,padding:22,textAlign:"center",marginBottom:16,boxShadow:"0 16px 48px rgba(168,85,247,0.35)",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:-40,right:-40,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,0.1)",pointerEvents:"none"}}/>
+              <div style={{fontSize:54,marginBottom:7,filter:"drop-shadow(0 0 16px rgba(255,255,255,0.25))"}}>{user.avatar}</div>
+              <div style={{fontFamily:"'Righteous',cursive",fontSize:22,color:"white"}}>{user.nom}</div>
+              <div style={{color:"rgba(255,255,255,0.65)",fontSize:12,fontWeight:600,marginBottom:14}}>{user.classe}</div>
+              <div style={{display:"flex",gap:10,justifyContent:"center",flexDirection:rtl?"row-reverse":"row"}}>
+                {[{v:mesEmp.length,l:t.books},{v:bd.filter(b=>b.earned).length,l:t.badges},{v:"🥈",l:t.rank}].map((s,i)=>(
+                  <div key={i} style={{background:"rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",borderRadius:14,padding:"8px 14px"}}>
+                    <div style={{fontWeight:900,fontSize:19,color:"white",fontFamily:"'Righteous',cursive"}}>{s.v}</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,0.75)",fontWeight:700}}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{fontWeight:900,fontSize:15,color:"white",marginBottom:11,textAlign:rtl?"right":"left"}}>🏆 {t.badges}</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:16}}>
+              {bd.map(b=>(
+                <div key={b.k} style={{background:b.earned?`${b.col}15`:"rgba(255,255,255,0.03)",border:`1px solid ${b.earned?b.col:"rgba(255,255,255,0.07)"}`,borderRadius:18,padding:"14px 7px",textAlign:"center",opacity:b.earned?1:0.35,position:"relative",boxShadow:b.earned?`0 4px 16px ${b.col}30`:"none",transition:"all .3s"}}>
+                  {b.earned&&<div className="pop" style={{position:"absolute",top:-5,right:rtl?"auto":-5,left:rtl?-5:"auto",background:"#00E5A0",color:"#0a1a3e",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900}}>✓</div>}
+                  <div style={{fontSize:28,filter:b.earned?`drop-shadow(0 0 8px ${b.col})`:"none"}}>{b.earned?b.i:"🔒"}</div>
+                  <div style={{fontSize:9,fontWeight:700,color:b.earned?"white":"rgba(255,255,255,0.2)",marginTop:5,lineHeight:1.3}}>{b.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {mesEmp.length>0&&(
+              <>
+                <div style={{fontWeight:900,fontSize:15,color:"white",marginBottom:10,textAlign:rtl?"right":"left"}}>📤 {t.myLoans}</div>
+                {mesEmp.map(e=>(
+                  <div key={e.id} style={{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",borderRadius:18,padding:"12px 14px",marginBottom:9,display:"flex",alignItems:"center",gap:10,border:"1px solid rgba(255,255,255,0.06)",flexDirection:rtl?"row-reverse":"row"}}>
+                    <span style={{fontSize:24}}>{e.livres?.cover_emoji||"📗"}</span>
+                    <div style={{flex:1,textAlign:rtl?"right":"left"}}>
+                      <div style={{fontWeight:800,fontSize:13,color:"white"}}>{e.livres?gt(e.livres):""}</div>
+                      <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600}}>{t.retBy}: {new Date(e.date_retour_prevue).toLocaleDateString(lang==="ar"?"ar-DZ":lang==="en"?"en-GB":"fr-FR")}</div>
+                    </div>
+                    <button onClick={()=>ret(e.id,e.livre_id)} style={{background:"rgba(0,229,160,0.12)",color:"#00E5A0",borderRadius:12,padding:"7px 12px",fontSize:11,fontWeight:900,border:"1px solid rgba(0,229,160,0.25)"}}>{t.returnBtn}</button>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ADMIN */}
+        {page==="admin"&&user.role==="admin"&&(
+          <div className="su" style={{padding:"16px 14px"}}>
+            <div style={{fontFamily:"'Righteous',cursive",fontSize:24,color:"white",marginBottom:3,textAlign:rtl?"right":"left"}}>⚙️ Admin</div>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:12,fontWeight:600,marginBottom:16,textAlign:rtl?"right":"left"}}>BiblioMagie Dashboard 🚀</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              {[
+                {i:"📚",v:livres.length,l:t.tBooks,g:"rgba(108,59,255,0.12)",b:"rgba(108,59,255,0.25)",c:"#C4B5FD"},
+                {i:"👧",v:eleves.length,l:t.tStu,g:"rgba(0,229,160,0.1)",b:"rgba(0,229,160,0.25)",c:"#00E5A0"},
+                {i:"📤",v:emps.length,l:t.tLoans,g:"rgba(255,216,77,0.1)",b:"rgba(255,216,77,0.25)",c:"#FFD84D"},
+                {i:"⏰",v:emps.filter(e=>new Date(e.date_retour_prevue)<new Date()).length,l:t.tLate,g:"rgba(255,107,157,0.1)",b:"rgba(255,107,157,0.25)",c:"#FF6B9D"},
+              ].map((s,i)=>(
+                <div key={i} style={{background:s.g,borderRadius:18,padding:"14px 14px",backdropFilter:"blur(8px)",border:`1px solid ${s.b}`,textAlign:rtl?"right":"left"}}>
+                  <div style={{fontSize:26,marginBottom:4}}>{s.i}</div>
+                  <div style={{fontSize:26,fontWeight:900,color:s.c,fontFamily:"'Righteous',cursive"}}>{s.v}</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.45)",fontWeight:700}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {emps.length>0&&(
+              <>
+                <div style={{fontWeight:900,fontSize:15,color:"white",marginBottom:10,textAlign:rtl?"right":"left"}}>📋 {t.tLoans}</div>
+                {emps.slice(0,5).map(em=>(
+                  <div key={em.id} style={{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",borderRadius:16,padding:"11px 13px",marginBottom:8,display:"flex",alignItems:"center",gap:9,border:"1px solid rgba(255,255,255,0.06)",flexDirection:rtl?"row-reverse":"row"}}>
+                    <span style={{fontSize:22}}>{em.livres?.cover_emoji||"📗"}</span>
+                    <div style={{flex:1,textAlign:rtl?"right":"left"}}>
+                      <div style={{fontWeight:800,fontSize:12,color:"white"}}>{em.livres?gt(em.livres):""}</div>
+                      <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600}}>{em.eleves?.avatar} {em.eleves?.nom}</div>
+                    </div>
+                    <button onClick={()=>ret(em.id,em.livre_id)} style={{background:"rgba(0,229,160,0.12)",color:"#00E5A0",borderRadius:9,padding:"5px 9px",fontSize:10,fontWeight:900,border:"1px solid rgba(0,229,160,0.25)"}}>✅</button>
+                  </div>
+                ))}
+              </>
+            )}
+
+            <div style={{fontWeight:900,fontSize:15,color:"white",margin:"16px 0 10px",textAlign:rtl?"right":"left"}}>⚡ Actions</div>
+            {[
+              {i:"➕",l:t.addBook,g:G.hero,gl:"rgba(108,59,255,0.35)",a:()=>setShowAB(true)},
+              {i:"👤",l:t.addStu,g:G.mint,gl:"rgba(0,229,160,0.25)",tc:"#0a1a3e",a:()=>setShowAS(true)},
+              {i:"🔄",l:t.refresh,g:"rgba(0,194,255,0.1)",gl:"none",b:"rgba(0,194,255,0.25)",tc:"#00C2FF",a:async()=>{await loadAll(user.id,user.role);toast2("Actualisé !","🔄");}},
+            ].map((x,i)=>(
+              <button key={i} onClick={x.a} style={{width:"100%",background:x.g,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:10,fontWeight:800,fontSize:13,color:x.tc||"white",boxShadow:`0 4px 16px ${x.gl}`,border:x.b?`1px solid ${x.b}`:"none",marginBottom:10,textAlign:rtl?"right":"left",flexDirection:rtl?"row-reverse":"row"}}>
+                <span style={{fontSize:20}}>{x.i}</span>{x.l}
+                <span style={{marginLeft:rtl?0:"auto",marginRight:rtl?"auto":0,opacity:.6}}>{rtl?"←":"→"}</span>
+              </button>
+            ))}
+
+            {/* Footer */}
+            <div style={{marginTop:24,padding:18,background:"rgba(255,255,255,0.03)",borderRadius:20,border:"1px solid rgba(255,255,255,0.06)",textAlign:"center"}}>
+              <div style={{fontSize:24,marginBottom:8}}>🤲</div>
+              <div style={{color:"rgba(255,255,255,0.25)",fontSize:11,fontWeight:600,lineHeight:1.9}}>
+                BiblioMagie — صدقة جارية<br/>
+                Sadaqa Jariya 🌍<br/>
+                Pour les enfants du monde entier ❤️
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* NAVBAR */}
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(26,5,51,0.92)",backdropFilter:"blur(20px)",borderTop:"1px solid rgba(108,59,255,0.15)",padding:"8px 0 12px",display:"flex",justifyContent:"space-around",zIndex:100,maxWidth:480,margin:"0 auto",flexDirection:rtl?"row-reverse":"row"}}>
+        {[{i:"🏠",l:t.home,p:"home"},{i:"📚",l:t.cat,p:"catalogue"},{i:"🎧",l:t.listen,p:"listen"},{i:"👤",l:t.profile,p:"profile"},...(user.role==="admin"?[{i:"⚙️",l:t.admin,p:"admin"}]:[])].map(n=>(
+          <button key={n.p} onClick={()=>setPage(n.p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 10px",borderRadius:14,background:page===n.p?"rgba(108,59,255,0.18)":"transparent",border:page===n.p?"1px solid rgba(108,59,255,0.25)":"1px solid transparent"}}>
+            <span style={{fontSize:20,filter:page===n.p?"drop-shadow(0 0 6px rgba(108,59,255,0.8))":"none"}}>{n.i}</span>
+            <span style={{fontSize:9,fontWeight:700,color:page===n.p?"#C4B5FD":"rgba(255,255,255,0.3)"}}>{n.l}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
